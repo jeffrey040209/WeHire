@@ -1,0 +1,47 @@
+<!-- {"title": "HR Dashboard Ranked Candidate Queue", "portal": "hr", "active": "Candidates", "crumb": "Recruitment / Candidates", "user": "Maya Tan / Recruiter"} -->
+<div class="head">
+  <div>
+    <div class="eyebrow">Screening workspace</div>
+    <div class="h1">Backend Software Engineer</div>
+    <div class="sub">24 applications / Scorecard v1.2 / Last updated just now</div>
+  </div>
+  <div class="head-actions"><div class="btn secondary">{{i:upload}}Import resumes</div></div>
+</div>
+
+<div class="grid" style="grid-template-columns:repeat(5,1fr);gap:10px">
+  <div class="step active" style="justify-content:space-between">Priority<span class="n" style="width:auto;min-width:24px;padding:0 7px">8</span></div>
+  <div class="step" style="justify-content:space-between">Standard<span class="n" style="width:auto;min-width:24px;padding:0 7px">6</span></div>
+  <div class="step" style="justify-content:space-between">Clarification<span class="n" style="width:auto;min-width:24px;padding:0 7px">5</span></div>
+  <div class="step" style="justify-content:space-between">Manual review<span class="n" style="width:auto;min-width:24px;padding:0 7px">3</span></div>
+  <div class="step" style="justify-content:space-between">Requirement check<span class="n" style="width:auto;min-width:24px;padding:0 7px">2</span></div>
+</div>
+
+<div class="card mt-16" style="padding:18px 24px 8px">
+  <table class="tbl">
+    <thead><tr><th>Candidate</th><th>Match</th><th>Evidence</th><th>Eligibility</th><th style="text-align:right">Action</th></tr></thead>
+    <tbody>
+      <tr><td><div class="row" style="gap:12px"><span class="avatar sm">AR</span><div><div class="strong">Aisha Rahman</div><div class="t-xs muted">Python • FastAPI</div></div></div></td>
+        <td style="width:200px"><div class="row"><b class="num accent">86 / 100</b><div class="bar grow" style="max-width:80px"><i style="width:86%"></i></div></div></td>
+        <td><span class="badge success">Sufficient</span></td><td><span class="row" style="color:var(--success);font-weight:600;gap:6px">{{i:check-circle}}Met</span></td>
+        <td style="text-align:right"><div class="btn secondary sm">Review{{i:arrow-right}}</div></td></tr>
+      <tr><td><div class="row" style="gap:12px"><span class="avatar sm alt2">ML</span><div><div class="strong">Marcus Lee</div><div class="t-xs muted">Python • AWS</div></div></div></td>
+        <td><div class="row"><b class="num accent">84 / 100</b><div class="bar grow" style="max-width:80px"><i style="width:84%"></i></div></div></td>
+        <td><span class="badge success">Sufficient</span></td><td><span class="row" style="color:var(--success);font-weight:600;gap:6px">{{i:check-circle}}Met</span></td>
+        <td style="text-align:right"><div class="btn secondary sm">Review{{i:arrow-right}}</div></td></tr>
+      <tr><td><div class="row" style="gap:12px"><span class="avatar sm alt">DW</span><div><div class="strong">Daniel Wong</div><div class="t-xs muted">Flask • PostgreSQL</div></div></div></td>
+        <td><div class="row"><b class="num accent">82 / 100</b><div class="bar grow" style="max-width:80px"><i style="width:82%"></i></div></div></td>
+        <td><span class="badge success">Sufficient</span></td><td><span class="row" style="color:var(--success);font-weight:600;gap:6px">{{i:check-circle}}Met</span></td>
+        <td style="text-align:right"><div class="btn secondary sm">Review{{i:arrow-right}}</div></td></tr>
+      <tr><td><div class="row" style="gap:12px"><span class="avatar sm">NI</span><div><div class="strong">Nur Izzati</div><div class="t-xs muted">Python • Docker</div></div></div></td>
+        <td><div class="row"><b class="num accent">81 / 100</b><div class="bar grow" style="max-width:80px"><i style="width:81%"></i></div></div></td>
+        <td><span class="badge success">Sufficient</span></td><td><span class="row" style="color:var(--success);font-weight:600;gap:6px">{{i:check-circle}}Met</span></td>
+        <td style="text-align:right"><div class="btn secondary sm">Review{{i:arrow-right}}</div></td></tr>
+      <tr><td><div class="row" style="gap:12px"><span class="avatar sm alt2">SC</span><div><div class="strong">Sarah Chen</div><div class="t-xs muted">FastAPI • SQL</div></div></div></td>
+        <td><div class="row"><b class="num accent">80 / 100</b><div class="bar grow" style="max-width:80px"><i style="width:80%"></i></div></div></td>
+        <td><span class="badge success">Sufficient</span></td><td><span class="row" style="color:var(--success);font-weight:600;gap:6px">{{i:check-circle}}Met</span></td>
+        <td style="text-align:right"><div class="btn secondary sm">Review{{i:arrow-right}}</div></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="row muted t-sm mt-16" style="gap:8px"><span class="faint">{{i:info}}</span>Ranked for review priority. Final decisions require recruiter confirmation.</div>

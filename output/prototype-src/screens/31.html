@@ -1,0 +1,48 @@
+<!-- {"title": "WeHire HR Candidate Assistant", "portal": "hr", "active": "AI assistant", "crumb": "Recruitment / AI assistant", "user": "Maya Tan / Recruiter"} -->
+<div class="head">
+  <div>
+    <div class="eyebrow">{{i:sparkles}}Recruitment assistant</div>
+    <div class="h1">Ask about your candidates</div>
+    <div class="sub">Backend Software Engineer / Assigned vacancy access</div>
+  </div>
+</div>
+
+<div class="grid" style="grid-template-columns:330px 1fr;gap:16px;flex:1;min-height:0;margin-bottom:18px">
+  <div class="card" style="display:flex;flex-direction:column">
+    <div class="card-head"><div class="card-title"><span class="ic">{{i:user}}</span>Candidate context</div></div>
+    <div class="row" style="gap:12px">
+      <span class="avatar" style="width:44px;height:44px;font-size:15px">AR</span>
+      <div><div class="t-lg">Aisha Rahman</div><div class="muted t-sm">Application HF 1048</div></div>
+    </div>
+    <div class="mt-12"><span class="badge success">Shortlisted</span></div>
+    <div class="divider" style="margin:18px 0 6px"></div>
+    <div class="list" style="--pad:12px">
+      <div class="item" style="justify-content:flex-start;padding-top:12px"><span class="accent">{{i:file-text}}</span><span class="t-sm" style="color:var(--ink-2)">Resume and screening evidence</span></div>
+      <div class="item" style="justify-content:flex-start"><span class="accent">{{i:clipboard}}</span><span class="t-sm" style="color:var(--ink-2)">Approved scorecard v1.2</span></div>
+      <div class="item" style="justify-content:flex-start"><span class="accent">{{i:image}}</span><span class="t-sm" style="color:var(--ink-2)">DISC: separate uploaded record</span></div>
+    </div>
+    <div class="btn secondary block mt-auto">Open candidate{{i:arrow-right}}</div>
+  </div>
+
+  <div class="card" style="display:flex;flex-direction:column">
+    <div class="card-head"><div class="card-title"><span class="ic">{{i:sparkles}}</span>WeHire assistant</div></div>
+    <div class="chat">
+      <div class="msg me" style="font-size:15px">Why did Aisha receive 22/25 for Python?</div>
+      <div class="row" style="align-items:flex-start;gap:10px">
+        <span class="avatar sm" style="flex:none">{{i:sparkles}}</span>
+        <div class="msg ai tint" style="max-width:none;flex:1;padding:16px 18px">
+          <div class="stack" style="gap:10px;color:var(--ink)">
+            <div>Her resume describes building production FastAPI services.<br>This supports the production API criteria in the scorecard.</div>
+            <div class="row accent" style="gap:6px;font-weight:500">{{i:link}}Evidence: Resume page 2, Experience section.</div>
+            <div class="row" style="gap:6px;align-items:flex-start"><span class="warn-text" style="margin-top:2px">{{i:alert}}</span>Missing: system scale and API ownership are not specified.</div>
+            <div class="row mt-4"><div class="btn secondary sm">{{i:eye}}Open source</div><div class="btn secondary sm">{{i:clipboard}}View rubric</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mt-auto">
+      <div class="row t-sm mb-8" style="gap:8px"><span class="muted">Suggested:</span><span class="chip" style="height:28px">Summarise experience</span><span class="faint">/</span><span class="chip" style="height:28px">Compare shortlist</span></div>
+      <div class="composer"><span class="grow">Ask about the selected candidate...</span><div class="btn primary">Send{{i:send}}</div></div>
+    </div>
+  </div>
+</div>

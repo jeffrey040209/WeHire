@@ -1,0 +1,47 @@
+<!-- {"title": "HR Dashboard Decision Confirmation", "portal": "hr", "active": "Approvals", "crumb": "Recruitment / Approvals", "user": "Maya Tan / Recruiter"} -->
+<div class="head">
+  <div>
+    <div class="eyebrow">{{i:shield}}Human decision</div>
+    <div class="h1">Confirm shortlist</div>
+    <div class="sub">Review the decision and candidate communication before continuing.</div>
+  </div>
+</div>
+
+<div class="grid" style="grid-template-columns:1fr 400px;gap:18px;align-items:stretch">
+  <div class="card" style="display:flex;flex-direction:column;padding:24px 26px">
+    <div class="card-head"><div class="card-title"><span class="ic">{{i:clipboard}}</span>Decision summary</div></div>
+    <div class="row" style="gap:14px">
+      <span class="avatar" style="width:48px;height:48px;font-size:16px">AR</span>
+      <div class="grow"><div class="t-lg" style="font-size:20px">Aisha Rahman</div><div class="muted t-sm">Backend Software Engineer / HF 1048</div></div>
+      <span class="badge success" style="height:28px;padding:0 12px">Shortlisted after screening</span>
+    </div>
+    <div class="field" style="margin-top:24px">
+      <span class="lbl">Decision reason</span>
+      <div class="textarea" style="color:var(--ink);font-size:14.5px;padding:16px 18px;min-height:120px;line-height:1.8">Verified production API experience and database skills.<br>Relevant evidence meets the approved job criteria.</div>
+    </div>
+    <div class="divider" style="margin:22px 0"></div>
+    <div class="row" style="gap:12px">
+      <span class="avatar sm">MT</span>
+      <div><div class="strong">Reviewer: Maya Tan</div><div class="row muted t-sm" style="gap:6px"><span style="color:var(--success)">{{i:check-circle}}</span>Evidence checked / Scorecard v1.2</div></div>
+    </div>
+    <div class="note mt-20">{{i:clock}}Decision will be recorded in the audit history.</div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card" style="padding:24px 26px;flex:1;display:flex;flex-direction:column">
+      <div class="card-head"><div class="card-title"><span class="ic">{{i:message}}</span>Candidate message preview</div></div>
+      <div style="border:1px solid var(--line);border-radius:14px;padding:18px 20px;background:var(--accent-softer)">
+        <div class="t-md">Hi Aisha,</div>
+        <div class="stack mt-12" style="gap:14px;color:var(--ink-2);line-height:1.7">
+          <div>Thank you for your application.<br>Your application screening is complete and you are shortlisted.</div>
+          <div>Your permitted application status is available in the candidate portal.</div>
+        </div>
+      </div>
+    </div>
+    <div class="row muted t-sm" style="gap:8px"><span class="faint">{{i:info}}</span>Portal status updates after confirmation.</div>
+    <div class="row">
+      <div class="btn secondary">{{i:arrow-left}}Back</div>
+      <div class="btn primary grow">{{i:check}}Confirm shortlist</div>
+    </div>
+  </div>
+</div>

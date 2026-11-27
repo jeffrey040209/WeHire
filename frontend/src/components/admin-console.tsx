@@ -14,8 +14,9 @@ import { Dialog, useConfirm } from "@/components/ui/dialog";
 import { Alert, Badge, Skeleton, Spinner } from "@/components/ui/feedback";
 import { FormMessage, PasswordField, TextField } from "@/components/ui/form";
 import { ActionMenu, type MenuAction } from "@/components/ui/menu";
-import { ease } from "@/components/ui/motion";
+import { CountUp, ease, popHidden, popShown, popSpring, popTransition } from "@/components/ui/motion";
 import { buttonClass, cardClass, cn, inputClass } from "@/components/ui/styles";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Avatar, UserMenu } from "@/components/user-menu";
 import { adminRequest } from "@/lib/admin-api";
 import type { Identity } from "@/lib/api";
@@ -35,6 +36,7 @@ const descriptions: Record<Section, string> = {
   applications: "Link a candidate to a vacancy. Resume and DISC uploads come in later steps.",
 };
 const icons: Record<Section, ReactNode> = { users: <UsersRound />, vacancies: <BriefcaseBusiness />, assignments: <Link2 />, applications: <FileStack /> };
+const tones: Record<Section, string> = { users: "from-violet-400 to-purple-700", vacancies: "from-amber-400 to-orange-600", assignments: "from-sky-400 to-indigo-600", applications: "from-emerald-400 to-teal-600" };
 const selectClass = cn(inputClass, "select-chevron h-11 appearance-none pr-10");
 const fieldLabel = "mb-1.5 block text-sm font-medium text-slate-700";
 
@@ -62,7 +64,7 @@ function RecordPicker({ name, label, resource, kind }: { name: string; label: st
     }, 200);
     return () => { current = false; clearTimeout(timer); };
   }, [query, resource, kind]);
-  return <fieldset className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+  return <fieldset className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
     <legend className="sr-only">{label}</legend>
     <label className={fieldLabel} htmlFor={`${name}-search`}>{label}</label>
     <div className="relative">
@@ -127,7 +129,7 @@ function ManagementForm({ open, state, onClose, onSave }: { open: boolean; state
           <PasswordField name="confirm" label="Confirm password" icon={<KeyRound />} required minLength={6} maxLength={128} autoComplete="new-password" />
         </>}
         {state.mode === "roles" && <>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-600">
+          <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4 text-sm text-slate-600">
             <p className="font-medium text-slate-800">Current roles</p>
             <div className="mt-2 flex flex-wrap gap-1.5">{state.row?.roles?.length ? state.row.roles.map(r => <Badge key={r} tone="brand">{roleLabel(r)}</Badge>) : <span>None</span>}</div>
             <p className="mt-3 text-xs leading-5 text-slate-500">Candidate and staff roles use separate accounts.</p>
@@ -142,7 +144,7 @@ function ManagementForm({ open, state, onClose, onSave }: { open: boolean; state
         {state.mode === "application" && <RecordPicker name="candidate_user_id" label="Candidate" resource="users" kind="candidate" />}
         {["assignment", "application"].includes(state.mode) && <RecordPicker name="vacancy_id" label="Vacancy" resource="vacancies" />}
         <FormMessage message={error} />
-        <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-200/70 pt-5 sm:flex-row sm:justify-end">
           <button disabled={pending} type="button" onClick={onClose} className={buttonClass({ variant: "secondary" })}>Cancel</button>
           <button disabled={pending} aria-busy={pending} className={buttonClass()}>{pending ? <><Spinner />Saving…</> : <><CheckCircle2 aria-hidden />Save changes</>}</button>
         </div>
@@ -258,43 +260,43 @@ export function AdminConsole({ user }: { user: Identity }) {
     aria-current={section === item ? "page" : undefined}
     className={cn("relative flex items-center gap-3 text-left text-sm font-medium transition disabled:opacity-60 [&_svg]:size-[18px]",
       variant === "side" ? "w-full rounded-xl px-3 py-2.5" : "shrink-0 rounded-lg px-3 py-2",
-      section === item ? "text-brand-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900")}
+      section === item ? "text-slate-900" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900")}
   >
-    {section === item && <motion.span layoutId={`admin-nav-${variant}`} transition={{ type: "spring", stiffness: 500, damping: 38 }} className={cn("absolute inset-0 bg-brand-50 ring-1 ring-brand-100", variant === "side" ? "rounded-xl" : "rounded-lg")} />}
+    {section === item && <motion.span layoutId={`admin-nav-${variant}`} transition={{ type: "spring", stiffness: 500, damping: 38 }} className={cn("absolute inset-0 bg-white shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10", variant === "side" ? "rounded-xl" : "rounded-lg")} />}
     <span className={cn("relative", section === item ? "text-brand-600" : "text-slate-400")}>{icons[item]}</span>
     <span className="relative flex-1">{labels[item]}</span>
-    <span className={cn("relative rounded-md px-1.5 py-0.5 text-xs tabular-nums", section === item ? "bg-white text-brand-700" : "bg-slate-100 text-slate-500")}>{summary[item] ?? "—"}</span>
+    <span className={cn("relative rounded-md px-1.5 py-0.5 text-xs tabular-nums", section === item ? "bg-brand-50 text-brand-700" : "bg-slate-100 text-slate-500")}>{summary[item] ?? "—"}</span>
   </button>;
 
-  return <div className="page-glow min-h-dvh text-slate-900 lg:grid lg:grid-cols-[268px_minmax(0,1fr)]">
+  return <div className="min-h-dvh text-slate-900 lg:grid lg:grid-cols-[284px_minmax(0,1fr)]">
     {/* Desktop sidebar */}
-    <aside className="sticky top-0 hidden h-dvh flex-col border-r border-slate-200/70 bg-white/90 px-4 py-6 backdrop-blur lg:flex">
+    <aside className="sticky top-0 hidden h-dvh p-3 pr-0 lg:block"><div className="glass flex h-full flex-col rounded-[1.75rem] px-4 py-6">
       <Link href="/staff" className="mx-2 w-fit rounded-xl"><Brand caption="Administration" /></Link>
       <p className="mx-3 mt-9 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-400">Manage</p>
       <nav aria-label="Administration sections" className="mt-3 grid gap-1">{sections.map(item => navButton(item, "side"))}</nav>
       <div className="mt-auto grid gap-3">
         <Link href="/staff" className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"><ArrowLeft aria-hidden className="size-4" />Staff workspace</Link>
-        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3">
+        <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-3">
           <div className="flex items-center gap-3"><Avatar email={user.email} /><div className="min-w-0"><p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-brand-600">Administrator</p><p className="truncate text-sm font-medium text-slate-800" title={user.email}>{user.email}</p></div></div>
           <SignOut variant="secondary" block className="mt-3" />
         </div>
       </div>
-    </aside>
+    </div></aside>
 
     <div className="min-w-0">
-      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl">
-        <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
+      <header className="sticky top-0 z-30 px-3 pt-3 sm:px-5 lg:px-6"><div className="glass rounded-[1.4rem]">
+        <div className="flex h-16 items-center justify-between gap-4 pl-4 pr-2.5 sm:pl-5">
           <Link href="/staff" className="rounded-xl lg:hidden"><Brand caption="Administration" /></Link>
           <nav aria-label="Breadcrumb" className="hidden items-center gap-2 text-sm lg:flex"><span className="text-slate-400">Administration</span><ChevronRight aria-hidden className="size-4 text-slate-300" /><span aria-current="page" className="font-medium text-slate-800">{labels[section]}</span></nav>
-          <UserMenu user={user} links={[{ href: "/staff", label: "Staff workspace", icon: <LayoutDashboard /> }]} />
+          <div className="flex items-center gap-2"><span className="hidden sm:contents"><ThemeToggle /></span><UserMenu user={user} links={[{ href: "/staff", label: "Staff workspace", icon: <LayoutDashboard /> }]} /></div>
         </div>
-        <nav aria-label="Administration sections" className="scrollbar-none flex gap-1 overflow-x-auto border-t border-slate-100 px-3 py-2 lg:hidden">{sections.map(item => navButton(item, "tab"))}</nav>
-      </header>
+        <nav aria-label="Administration sections" className="scrollbar-none flex gap-1 overflow-x-auto border-t border-slate-200/70 px-3 py-2 lg:hidden">{sections.map(item => navButton(item, "tab"))}</nav>
+      </div></header>
 
-      <main id="main" className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-10 lg:pt-10">
+      <main id="main" className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-10 lg:pt-9">
         <div className="flex flex-wrap items-end justify-between gap-5">
           <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={section} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.22, ease }} className="min-w-0 max-w-2xl">
+            <motion.div key={section} initial={popHidden} animate={popShown} exit={{ opacity: 0, y: -12, scale: 0.98, transition: { duration: 0.22, ease } }} transition={popTransition()} className="min-w-0 max-w-2xl">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Administrator</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight">{labels[section]}</h1>
               <p className="mt-2 text-sm leading-6 text-slate-500">{descriptions[section]}</p>
@@ -304,11 +306,11 @@ export function AdminConsole({ user }: { user: Identity }) {
         </div>
 
         <ul aria-label="Record counts" className="mt-8 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {sections.map((item, index) => <motion.li key={item} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease, delay: 0.05 * index }}>
-            <button disabled={busy} onClick={() => selectSection(item)} aria-pressed={section === item} className={cn(cardClass, "group relative h-full w-full overflow-hidden p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.99] disabled:opacity-60 sm:p-5", section === item && "border-brand-200 ring-2 ring-brand-100")}>
-              <div className="flex items-start justify-between gap-2"><span className="text-xs font-medium uppercase tracking-wide text-slate-500">{labels[item]}</span><span aria-hidden className={cn("grid size-8 shrink-0 place-items-center rounded-lg transition group-hover:scale-110 [&_svg]:size-4", section === item ? "bg-brand-600 text-white" : "bg-brand-50 text-brand-600")}>{icons[item]}</span></div>
-              <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight">{summary[item] ?? <Skeleton className="h-9 w-14" />}</p>
-              <p className="mt-1 text-xs text-slate-400">Current records</p>
+          {sections.map((item, index) => <motion.li key={item} initial={popHidden} animate={{ ...popShown, y: section === item ? -6 : 0, scale: section === item ? 1.03 : 1 }} whileHover={{ y: -8 }} transition={popTransition(0.08 * index)}>
+            <button disabled={busy} onClick={() => selectSection(item)} aria-pressed={section === item} className={cn(cardClass, "spotlight group relative h-full w-full overflow-hidden p-4 text-left transition-shadow hover:shadow-lift active:scale-[0.99] disabled:opacity-60 sm:p-5", section === item && "border-brand-200 ring-2 ring-brand-100 dark:border-brand-200")}>
+              <div className="flex items-start justify-between gap-2"><span className="text-xs font-medium uppercase tracking-wide text-slate-500">{labels[item]}</span><span aria-hidden className={cn("grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-white shadow-md transition group-hover:scale-110 group-hover:rotate-3 [&_svg]:size-4", tones[item])}>{icons[item]}</span></div>
+              <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight">{summary[item] === undefined ? <Skeleton className="h-9 w-14" /> : <CountUp value={summary[item]} />}</p>
+              <p className="mt-1 text-xs text-slate-500">Current records</p>
             </button>
           </motion.li>)}
         </ul>
@@ -318,28 +320,28 @@ export function AdminConsole({ user }: { user: Identity }) {
         </motion.div>}</AnimatePresence>
 
         <section aria-label={`${labels[section]} records`} className={cn(cardClass, "relative mt-6 overflow-hidden")}>
-          <AnimatePresence>{loading && rows.length > 0 && <motion.div aria-hidden initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-brand-100"><motion.div className="h-full w-1/3 rounded-full bg-brand-500" animate={{ x: ["-100%", "300%"] }} transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }} /></motion.div>}</AnimatePresence>
+          <AnimatePresence>{loading && rows.length > 0 && <motion.div aria-hidden initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-brand-100"><motion.div className="h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-brand-500 to-transparent" animate={{ x: ["-100%", "300%"] }} transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }} /></motion.div>}</AnimatePresence>
 
-          <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex flex-col gap-3 border-b border-slate-200/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             {searchable ? <div className="relative w-full sm:max-w-xs">
               <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-              <input type="search" disabled={busy} aria-label="Search records" value={query} onChange={event => { setQuery(event.target.value); setPage(0); }} placeholder={section === "users" ? "Search email…" : "Search vacancy title…"} className={cn(inputClass, "h-10 bg-slate-50 pl-10 pr-9 text-sm [&::-webkit-search-cancel-button]:hidden")} />
-              {query && <button type="button" onClick={() => { setQuery(""); setPage(0); }} aria-label="Clear search" className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-slate-400 hover:bg-slate-200 hover:text-slate-700"><X aria-hidden className="size-3.5" /></button>}
+              <input type="search" disabled={busy} aria-label="Search records" value={query} onChange={event => { setQuery(event.target.value); setPage(0); }} placeholder={section === "users" ? "Search email…" : "Search vacancy title…"} className={cn(inputClass, "h-10 rounded-full pl-10 pr-9 text-sm [&::-webkit-search-cancel-button]:hidden")} />
+              {query && <button type="button" onClick={() => { setQuery(""); setPage(0); }} aria-label="Clear search" className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X aria-hidden className="size-3.5" /></button>}
             </div> : <p className="text-sm font-medium text-slate-700">{labels[section]}</p>}
             <div className="flex items-center justify-between gap-4 sm:justify-end">
               <label className="inline-flex items-center gap-2.5 text-sm text-slate-600">
                 <input disabled={busy} type="checkbox" role="switch" aria-checked={archived} checked={archived} onChange={event => { setArchived(event.target.checked); setPage(0); }} className="peer sr-only" />
-                <span aria-hidden className="relative h-5 w-9 rounded-full bg-slate-200 transition peer-checked:bg-brand-600 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600 peer-disabled:opacity-50 after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-4" />
+                <span aria-hidden className="relative h-5 w-9 rounded-full bg-slate-200 transition peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600 peer-disabled:opacity-50 after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-4" />
                 Include archived
               </label>
               <button type="button" onClick={() => void load()} disabled={busy || loading} aria-label="Refresh records" className={buttonClass({ variant: "ghost", size: "sm", className: "size-8 px-0" })}><RefreshCw aria-hidden className={cn(loading && "motion-safe:animate-spin")} /></button>
             </div>
           </div>
 
-          {loading && !rows.length ? <div role="status" aria-live="polite" className="divide-y divide-slate-100">
+          {loading && !rows.length ? <div role="status" aria-live="polite" className="divide-y divide-slate-200/60">
             <span className="sr-only">Loading records…</span>
             {[0, 1, 2, 3, 4].map(i => <div key={i} aria-hidden className="flex items-center gap-4 px-5 py-4"><Skeleton className="size-8 rounded-full" /><div className="flex-1 space-y-2"><Skeleton className="h-3.5 w-2/5" /><Skeleton className="h-3 w-1/4" /></div><Skeleton className="hidden h-6 w-16 rounded-full sm:block" /><Skeleton className="hidden h-3.5 w-24 md:block" /></div>)}
-          </div> : !rows.length ? <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease }} className="px-6 py-16 text-center">
+          </div> : !rows.length ? <motion.div key={`empty-${section}`} initial={{ opacity: 0, y: 24, scale: 0.94 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={popTransition(0.1)} className="px-6 py-16 text-center">
             <span aria-hidden className="mx-auto grid size-14 place-items-center rounded-2xl bg-slate-100 text-slate-400 [&_svg]:size-6">{icons[section]}</span>
             <p className="mt-5 font-medium text-slate-700">No records found</p>
             <p className="mt-2 text-sm text-slate-500">Create a record or adjust your filters.</p>
@@ -347,16 +349,16 @@ export function AdminConsole({ user }: { user: Identity }) {
               {filtered && <button disabled={busy} onClick={() => { setQuery(""); setArchived(false); setPage(0); }} className={buttonClass({ variant: "secondary" })}><X aria-hidden />Clear filters</button>}
               <div className="flex flex-wrap gap-2">{section === "vacancies" && <Link href="/staff/vacancies" className={buttonClass({ variant: "secondary", size: "lg" })}><BriefcaseBusiness aria-hidden />Vacancy studio</Link>}<button disabled={busy} onClick={() => setForm({ mode: createMode[section] })} className={buttonClass({ variant: "soft" })}><Plus aria-hidden />{createLabel[section]}</button></div>
             </div>
-          </motion.div> : <motion.div key={`${section}-${page}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className={cn("transition-opacity", loading && "opacity-60")}>
+          </motion.div> : <motion.div key={`${section}-${page}`} initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={popTransition()} className={cn("transition-opacity", loading && "opacity-60")}>
             {/* Desktop table */}
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <caption className="sr-only">{labels[section]}</caption>
-                <thead className="bg-slate-50/80 text-[0.7rem] uppercase tracking-wider text-slate-500"><tr><th scope="col" className="px-5 py-3 font-semibold">ID</th><th scope="col" className="px-5 py-3 font-semibold">{section === "users" ? "Account" : section === "vacancies" ? "Vacancy" : "Person & vacancy"}</th><th scope="col" className="px-5 py-3 font-semibold">Status</th><th scope="col" className="px-5 py-3 font-semibold">Created</th><th scope="col" className="px-5 py-3 text-right font-semibold"><span className="sr-only">Actions</span><span aria-hidden>Actions</span></th></tr></thead>
-                <tbody className="divide-y divide-slate-100">
+                <thead className="bg-slate-50 text-[0.7rem] uppercase tracking-wider text-slate-500"><tr><th scope="col" className="px-5 py-3 font-semibold">ID</th><th scope="col" className="px-5 py-3 font-semibold">{section === "users" ? "Account" : section === "vacancies" ? "Vacancy" : "Person & vacancy"}</th><th scope="col" className="px-5 py-3 font-semibold">Status</th><th scope="col" className="px-5 py-3 font-semibold">Created</th><th scope="col" className="px-5 py-3 text-right font-semibold"><span className="sr-only">Actions</span><span aria-hidden>Actions</span></th></tr></thead>
+                <tbody className="divide-y divide-slate-200/60">
                   {rows.map((row, index) => {
                     const created = splitDate(row.created_at);
-                    return <motion.tr key={row.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease, delay: Math.min(index, 12) * 0.025 }} className={cn("align-middle transition-colors hover:bg-brand-50/30", row.deleted_at && "bg-slate-50/50")}>
+                    return <motion.tr key={row.id} initial={{ opacity: 0, y: 22, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ ...popSpring, delay: 0.12 + Math.min(index, 12) * 0.06, opacity: { duration: 0.6, ease, delay: 0.12 + Math.min(index, 12) * 0.06 } }} className={cn("align-middle transition-colors hover:bg-brand-50/50", row.deleted_at && "bg-slate-50")}>
                       <td className="px-5 py-4 font-mono text-xs text-slate-400">#{row.id}</td>
                       <td className="px-5 py-4"><RecordSummary row={row} section={section} /></td>
                       <td className="px-5 py-4"><StatusBadge row={row} />{row.deleted_at && <p className="mt-1.5 whitespace-nowrap text-[0.7rem] text-slate-400">{row.deleted_at}</p>}</td>
@@ -368,15 +370,15 @@ export function AdminConsole({ user }: { user: Identity }) {
               </table>
             </div>
             {/* Mobile cards */}
-            <ul className="divide-y divide-slate-100 md:hidden">
-              {rows.map((row, index) => <motion.li key={row.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease, delay: Math.min(index, 12) * 0.03 }} className="px-4 py-4">
+            <ul className="divide-y divide-slate-200/60 md:hidden">
+              {rows.map((row, index) => <motion.li key={row.id} initial={{ opacity: 0, y: 22, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ ...popSpring, delay: 0.12 + Math.min(index, 12) * 0.06, opacity: { duration: 0.6, ease, delay: 0.12 + Math.min(index, 12) * 0.06 } }} className="px-4 py-4">
                 <div className="flex items-start justify-between gap-3"><RecordSummary row={row} section={section} />{renderActions(row)}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-11 text-xs text-slate-500"><StatusBadge row={row} /><span className="font-mono text-slate-400">#{row.id}</span><span>Created {row.created_at ?? "—"}</span>{row.deleted_at && <span>Archived {row.deleted_at}</span>}</div>
               </motion.li>)}
             </ul>
           </motion.div>}
 
-          <nav aria-label="Pagination" className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <nav aria-label="Pagination" className="flex flex-col gap-3 border-t border-slate-200/70 px-4 py-3.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <p aria-live="polite">{total ? `${page * 25 + 1}–${Math.min((page + 1) * 25, total)} of ${total}` : "0 records"}<span className="text-slate-400"> · Page {page + 1} of {pageCount}</span></p>
             <div className="flex gap-2">
               <button className={buttonClass({ variant: "secondary", size: "sm", className: "flex-1 sm:flex-none" })} disabled={busy || loading || page === 0} onClick={() => setPage(page - 1)}><ChevronLeft aria-hidden />Previous</button>
@@ -390,7 +392,7 @@ export function AdminConsole({ user }: { user: Identity }) {
 
     {/* Success toast: the live region is always mounted so announcements are reliable. */}
     <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex justify-center sm:inset-x-auto sm:right-6 sm:bottom-6">
-      <AnimatePresence>{notice && <motion.div key={notice} initial={{ opacity: 0, y: 16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.98 }} transition={{ type: "spring", stiffness: 420, damping: 30 }} className="pointer-events-auto flex items-center gap-3 rounded-2xl bg-slate-900 py-3 pl-4 pr-2 text-sm font-medium text-white shadow-2xl">
+      <AnimatePresence>{notice && <motion.div key={notice} initial={{ opacity: 0, y: 16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.98 }} transition={{ type: "spring", stiffness: 420, damping: 30 }} className="pointer-events-auto flex items-center gap-3 rounded-full bg-[#1c171d]/90 py-2.5 pl-4 pr-2 text-sm font-medium text-white shadow-2xl ring-1 ring-white/10 backdrop-blur-xl">
         <CheckCircle2 aria-hidden className="size-[18px] text-emerald-400" />{notice}
         <button type="button" onClick={() => setNotice("")} aria-label="Dismiss notification" className="grid size-7 place-items-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white"><X aria-hidden className="size-4" /></button>
       </motion.div>}</AnimatePresence>

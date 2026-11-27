@@ -75,7 +75,7 @@ export function ActionMenu({ label, actions, disabled = false }: { label: string
       aria-controls={open ? menuId : undefined}
       onClick={() => (open ? close() : setOpen(true))}
       onKeyDown={event => { if (event.key === "ArrowDown" && !open) { event.preventDefault(); setOpen(true); } }}
-      className={cn("grid size-9 place-items-center rounded-xl border border-transparent text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-slate-900 hover:shadow-sm active:scale-95 disabled:pointer-events-none disabled:opacity-40", open && "border-slate-200 bg-white text-slate-900 shadow-sm")}
+      className={cn("grid size-9 place-items-center rounded-xl border border-transparent text-slate-500 transition hover:border-slate-200 hover:bg-slate-100 hover:text-slate-900 active:scale-95 disabled:pointer-events-none disabled:opacity-40", open && "border-slate-200 bg-slate-100 text-slate-900")}
     >
       <MoreHorizontal aria-hidden className="size-[18px]" />
     </button>
@@ -91,7 +91,7 @@ export function ActionMenu({ label, actions, disabled = false }: { label: string
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.12 } }}
           transition={{ duration: 0.16, ease: "easeOut" }}
-          className="fixed left-0 top-0 z-50 min-w-52 rounded-2xl border border-slate-200/80 bg-white p-1.5 shadow-lift"
+          className="glass-solid fixed left-0 top-0 z-50 min-w-52 rounded-2xl p-1.5"
         >
           {actions.map(action => <div key={action.label}>
             {action.separatorBefore && <div role="separator" className="my-1.5 h-px bg-slate-100" />}

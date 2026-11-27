@@ -1,62 +1,159 @@
 @import "tailwindcss";
 
 /*
- * WeHire design tokens.
- * HR/admin screens use the violet "workspace" theme (default).
- * Candidate screens set data-theme="candidate" for the teal theme.
- * Text/solid usage stays at 600+ so white-on-brand and brand-on-white meet WCAG AA.
+ * WeHire "glass" design system.
+ *
+ * Colour modes: <html data-mode="light|dark"> is set before first paint by the inline
+ * script in app/layout.tsx (stored preference, falling back to the OS setting).
+ *
+ * Neutral, brand and status scales are CSS variables. Dark mode re-points them, so every
+ * existing utility (text-slate-500, bg-brand-50, text-red-700 …) adapts automatically:
+ *   - 50–200 become translucent tints (glass-friendly backgrounds and hairlines)
+ *   - 600–900 become light tones (readable text on dark glass)
+ * Solid fills that carry white text use --color-accent / --color-accent-deep, which keep
+ * WCAG AA contrast with white in both modes.
+ *
+ * Accent themes: workspace (purple, default) and data-theme="candidate" (indigo).
  */
-:root {
-  color-scheme: light;
-  --brand-50: #f6f4ff;
-  --brand-100: #eeeafe;
-  --brand-200: #ddd5fd;
-  --brand-300: #c2b4fb;
-  --brand-400: #9f88f6;
-  --brand-500: #8466ee;
-  --brand-600: #6a4ddf;
-  --brand-700: #5a3cc8;
-  --brand-800: #4930a3;
-  --brand-900: #382780;
-  --brand-950: #1d1442;
-  --brand-glow: 106 77 223;
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Warm, slightly plum neutrals (replace Tailwind's cool slate). */
+  --color-slate-50: #faf8f9;
+  --color-slate-100: #f3eff2;
+  --color-slate-200: #e7e1e6;
+  --color-slate-300: #d3cbd2;
+  --color-slate-400: #a1979f;
+  --color-slate-500: #6e646d;
+  --color-slate-600: #554c55;
+  --color-slate-700: #423a43;
+  --color-slate-800: #2c252d;
+  --color-slate-900: #1c171d;
+  --color-slate-950: #100c11;
+
+  /* Workspace accent: purple. */
+  --color-brand-50: #f6f3ff;
+  --color-brand-100: #ede8ff;
+  --color-brand-200: #ddd5fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+  --color-brand-950: #2e1065;
+  --color-accent: #7c3aed;
+  --color-accent-deep: #5226b0;
+  --color-accent-glow: rgb(124 58 237 / 0.45);
+
+  /* Surfaces. */
+  --color-canvas: #f6f2f4;
+  --color-surface: rgb(255 255 255 / 0.6);
+  --color-surface-solid: rgb(255 255 255 / 0.96);
+  --color-field: rgb(255 255 255 / 0.78);
+
+  --shadow-card: 0 1px 2px rgb(60 20 50 / 0.04), 0 12px 32px -14px rgb(60 20 50 / 0.16);
+  --shadow-lift: 0 2px 6px rgb(60 20 50 / 0.06), 0 24px 48px -18px rgb(60 20 50 / 0.28);
+  --shadow-brand: 0 10px 26px -10px var(--color-accent-glow);
+
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-drift: drift 22s ease-in-out infinite;
 }
 
 [data-theme="candidate"] {
-  --brand-50: #effcf9;
-  --brand-100: #d5f6ee;
-  --brand-200: #abebdd;
-  --brand-300: #72d8c5;
-  --brand-400: #36bba7;
-  --brand-500: #14998a;
-  --brand-600: #0d7a6f;
-  --brand-700: #0e655d;
-  --brand-800: #10514c;
-  --brand-900: #11433f;
-  --brand-950: #052624;
-  --brand-glow: 13 122 111;
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+  --color-brand-950: #1e1b4b;
+  --color-accent: #4f46e5;
+  --color-accent-deep: #332c9c;
+  --color-accent-glow: rgb(99 102 241 / 0.55);
 }
 
-@theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
-  --color-brand-50: var(--brand-50);
-  --color-brand-100: var(--brand-100);
-  --color-brand-200: var(--brand-200);
-  --color-brand-300: var(--brand-300);
-  --color-brand-400: var(--brand-400);
-  --color-brand-500: var(--brand-500);
-  --color-brand-600: var(--brand-600);
-  --color-brand-700: var(--brand-700);
-  --color-brand-800: var(--brand-800);
-  --color-brand-900: var(--brand-900);
-  --color-brand-950: var(--brand-950);
-  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px -4px rgb(15 23 42 / 0.06);
-  --shadow-lift: 0 2px 4px rgb(15 23 42 / 0.04), 0 16px 32px -12px rgb(15 23 42 / 0.14);
-  --shadow-brand: 0 8px 20px -8px rgb(var(--brand-glow) / 0.55);
-  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
-  --animate-float: float 7s ease-in-out infinite;
-  --animate-drift: drift 18s ease-in-out infinite;
+[data-mode="dark"] {
+  --color-slate-50: rgb(255 255 255 / 0.035);
+  --color-slate-100: rgb(255 255 255 / 0.065);
+  --color-slate-200: rgb(255 255 255 / 0.11);
+  --color-slate-300: rgb(255 255 255 / 0.2);
+  --color-slate-400: #8f8692;
+  --color-slate-500: #a69ea9;
+  --color-slate-600: #c0b9c3;
+  --color-slate-700: #d5cfd8;
+  --color-slate-800: #e8e3ea;
+  --color-slate-900: #f5f2f6;
+  --color-slate-950: #ffffff;
+
+  --color-brand-50: rgb(139 92 246 / 0.12);
+  --color-brand-100: rgb(139 92 246 / 0.2);
+  --color-brand-200: rgb(139 92 246 / 0.34);
+  --color-brand-300: #ddd6fe;
+  --color-brand-400: #c4b5fd;
+  --color-brand-500: #a78bfa;
+  --color-brand-600: #c4b5fd;
+  --color-brand-700: #ddd6fe;
+  --color-brand-800: #ede9fe;
+  --color-brand-900: #f5f3ff;
+  --color-brand-950: #ffffff;
+  --color-accent: #8b5cf6;
+  --color-accent-deep: #6d4fc2;
+  --color-accent-glow: rgb(167 139 250 / 0.28);
+
+  /* Status scales: tinted glass backgrounds and light text. */
+  --color-red-50: oklch(63.7% 0.237 25.331 / 0.12);
+  --color-red-100: oklch(63.7% 0.237 25.331 / 0.2);
+  --color-red-200: oklch(63.7% 0.237 25.331 / 0.34);
+  --color-red-700: oklch(80.8% 0.114 19.571);
+  --color-red-800: oklch(88.5% 0.062 18.334);
+  --color-emerald-50: oklch(69.6% 0.17 162.48 / 0.12);
+  --color-emerald-100: oklch(69.6% 0.17 162.48 / 0.2);
+  --color-emerald-200: oklch(69.6% 0.17 162.48 / 0.32);
+  --color-emerald-700: oklch(84.5% 0.143 164.978);
+  --color-emerald-800: oklch(90.5% 0.093 164.15);
+  --color-amber-50: oklch(76.9% 0.188 70.08 / 0.12);
+  --color-amber-200: oklch(76.9% 0.188 70.08 / 0.32);
+  --color-amber-700: oklch(87.9% 0.169 91.605);
+  --color-amber-800: oklch(87.9% 0.169 91.605);
+  --color-amber-900: oklch(92.4% 0.12 95.746);
+  --color-sky-50: oklch(68.5% 0.169 237.323 / 0.12);
+  --color-sky-200: oklch(68.5% 0.169 237.323 / 0.32);
+  --color-sky-700: oklch(82.8% 0.111 230.318);
+
+  --color-canvas: #0b0a0e;
+  --color-surface: rgb(255 255 255 / 0.045);
+  --color-surface-solid: rgb(24 20 28 / 0.97);
+  --color-field: rgb(255 255 255 / 0.05);
+
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 18px 40px -20px rgb(0 0 0 / 0.7);
+  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 28px 56px -20px rgb(0 0 0 / 0.85);
+}
+
+[data-mode="dark"] [data-theme="candidate"] {
+  --color-brand-50: rgb(99 102 241 / 0.14);
+  --color-brand-100: rgb(99 102 241 / 0.22);
+  --color-brand-200: rgb(99 102 241 / 0.38);
+  --color-brand-300: #c7d2fe;
+  --color-brand-400: #a5b4fc;
+  --color-brand-500: #8b93fa;
+  --color-brand-600: #a5b4fc;
+  --color-brand-700: #c7d2fe;
+  --color-brand-800: #e0e7ff;
+  --color-brand-900: #eef2ff;
+  --color-brand-950: #ffffff;
+  --color-accent: #7378f4;
+  --color-accent-deep: #4f4ac8;
+  --color-accent-glow: rgb(129 140 248 / 0.28);
 }
 
 @keyframes shimmer {
@@ -69,28 +166,36 @@
 }
 @keyframes drift {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  33% { transform: translate3d(4%, -6%, 0) scale(1.08); }
-  66% { transform: translate3d(-5%, 4%, 0) scale(0.96); }
+  33% { transform: translate3d(6%, -8%, 0) scale(1.1); }
+  66% { transform: translate3d(-6%, 5%, 0) scale(0.94); }
+}
+@keyframes sheen {
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to { transform: translateX(260%) skewX(-18deg); }
 }
 
 @layer base {
   html {
+    color-scheme: light;
+    background: var(--color-canvas);
     -webkit-tap-highlight-color: transparent;
   }
+  html[data-mode="dark"] {
+    color-scheme: dark;
+  }
   body {
-    background: #f6f7fb;
-    color: #0f172a;
+    color: var(--color-slate-900);
     font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01";
     text-rendering: optimizeLegibility;
   }
   ::selection {
-    background: var(--brand-200);
-    color: var(--brand-950);
+    background: var(--color-brand-200);
+    color: var(--color-slate-950);
   }
   /* One consistent, high-contrast keyboard focus indicator. */
   :focus-visible {
-    outline: 2px solid var(--brand-600);
+    outline: 2px solid var(--color-brand-600);
     outline-offset: 2px;
   }
   button:not(:disabled), [role="button"]:not([aria-disabled="true"]), summary, label[for] {
@@ -99,20 +204,156 @@
   dialog::backdrop {
     background: transparent;
   }
+  option {
+    background: var(--color-canvas);
+    color: var(--color-slate-900);
+  }
 }
 
 @layer components {
-  .skeleton {
-    border-radius: 0.5rem;
-    background: linear-gradient(90deg, #eef0f5 25%, #f7f8fb 50%, #eef0f5 75%);
-    background-size: 200% 100%;
-    animation: var(--animate-shimmer);
+  /* Frosted-glass surface. Utilities (borders, rings) can still override it. */
+  .glass {
+    border: 1px solid rgb(255 255 255 / 0.75);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card), inset 0 1px 0 rgb(255 255 255 / 0.6);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    backdrop-filter: blur(22px) saturate(160%);
   }
-  .brand-mesh {
+  [data-mode="dark"] .glass {
+    border-color: rgb(255 255 255 / 0.085);
+    box-shadow: var(--shadow-card);
+  }
+  .glass-solid {
+    border: 1px solid rgb(255 255 255 / 0.8);
+    background: var(--color-surface-solid);
+    box-shadow: var(--shadow-lift);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    backdrop-filter: blur(28px) saturate(170%);
+  }
+  [data-mode="dark"] .glass-solid {
+    border-color: rgb(255 255 255 / 0.1);
+  }
+
+  /* Fixed ambient backdrop: slow-drifting colour orbs behind every page. */
+  .ambient {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    background: var(--color-canvas);
+  }
+  .ambient .orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(90px);
+    animation: var(--animate-drift);
+    will-change: transform;
+  }
+  .ambient .orb-1 { top: -18%; left: -10%; width: 55vmax; height: 55vmax; background: rgb(205 185 255 / 0.55); }
+  .ambient .orb-2 { top: 10%; right: -18%; width: 48vmax; height: 48vmax; background: rgb(255 210 170 / 0.45); animation-delay: -7s; animation-duration: 26s; }
+  .ambient .orb-3 { bottom: -25%; left: 20%; width: 52vmax; height: 52vmax; background: rgb(196 190 255 / 0.45); animation-delay: -13s; animation-duration: 30s; }
+  .ambient .orb-4 { bottom: 5%; right: 10%; width: 26vmax; height: 26vmax; background: rgb(170 220 255 / 0.35); animation-delay: -4s; animation-duration: 24s; }
+  .ambient::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgb(60 20 50 / 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(60 20 50 / 0.035) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse at 50% 0%, black 10%, transparent 70%);
+  }
+  [data-mode="dark"] .ambient .orb-1 { background: rgb(124 98 200 / 0.26); }
+  [data-mode="dark"] .ambient .orb-2 { background: rgb(110 80 150 / 0.18); }
+  [data-mode="dark"] .ambient .orb-3 { background: rgb(80 90 180 / 0.22); }
+  [data-mode="dark"] .ambient .orb-4 { background: rgb(14 70 100 / 0.2); }
+  [data-mode="dark"] .ambient::after {
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.03) 1px, transparent 1px);
+  }
+
+  /* Cursor-following glow for interactive glass cards (positions set by SpotlightTracker). */
+  .spotlight {
+    position: relative;
+    isolation: isolate;
+  }
+  .spotlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), color-mix(in oklab, var(--color-brand-500) 16%, transparent), transparent 45%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  .spotlight:hover::before {
+    opacity: 1;
+  }
+
+  /* Primary button: gradient fill with a light sweep on hover. */
+  .btn-accent {
+    background-image: linear-gradient(135deg, var(--color-accent), var(--color-accent-deep));
+    overflow: hidden;
+  }
+  .btn-accent::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.28), transparent);
+    transform: translateX(-120%) skewX(-18deg);
+    pointer-events: none;
+  }
+  .btn-accent:hover::after {
+    animation: sheen 0.9s ease;
+  }
+
+  /* Deep, glowing feature panel (sign-in story, staff hero). Always dark. */
+  .feature-panel {
     background:
-      radial-gradient(60% 50% at 15% 10%, rgb(var(--brand-glow) / 0.55), transparent 70%),
-      radial-gradient(50% 45% at 95% 85%, rgb(var(--brand-glow) / 0.35), transparent 70%),
-      linear-gradient(160deg, var(--brand-950), #0b0b1a 70%);
+      radial-gradient(70% 60% at 90% 0%, color-mix(in oklab, var(--color-accent) 55%, transparent), transparent 70%),
+      radial-gradient(60% 70% at 0% 100%, color-mix(in oklab, var(--color-accent-deep) 70%, transparent), transparent 70%),
+      linear-gradient(150deg, #1c1236, #110c1e 60%, #0c0a12);
+  }
+  [data-theme="candidate"] .feature-panel,
+  .feature-panel[data-theme="candidate"] {
+    background:
+      radial-gradient(70% 60% at 90% 0%, color-mix(in oklab, var(--color-accent) 70%, transparent), transparent 70%),
+      radial-gradient(60% 70% at 0% 100%, color-mix(in oklab, var(--color-accent-deep) 80%, transparent), transparent 70%),
+      linear-gradient(150deg, #15123a, #0d0b1f 60%, #0a0a12);
+  }
+
+  /*
+   * Dark mode: softer, see-through purple instead of a deep solid fill.
+   * Buttons and hero panels become tinted glass over the page; white text stays above 4.5:1.
+   */
+  [data-mode="dark"] .btn-accent {
+    background-color: rgb(22 18 30 / 0.55);
+    background-image: linear-gradient(135deg, rgb(167 139 250 / 0.55), rgb(139 92 246 / 0.38));
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    backdrop-filter: blur(14px) saturate(150%);
+  }
+  [data-mode="dark"] [data-theme="candidate"] .btn-accent {
+    background-image: linear-gradient(135deg, rgb(165 180 252 / 0.5), rgb(129 140 248 / 0.36));
+  }
+  [data-mode="dark"] .feature-panel {
+    background:
+      radial-gradient(70% 60% at 90% 0%, rgb(167 139 250 / 0.3), transparent 70%),
+      radial-gradient(60% 70% at 0% 100%, rgb(139 92 246 / 0.2), transparent 70%),
+      linear-gradient(150deg, rgb(52 40 84 / 0.55), rgb(24 20 36 / 0.45) 60%, rgb(16 14 22 / 0.4));
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    backdrop-filter: blur(24px) saturate(140%);
+  }
+  [data-mode="dark"] [data-theme="candidate"] .feature-panel,
+  [data-mode="dark"] .feature-panel[data-theme="candidate"] {
+    background:
+      radial-gradient(70% 60% at 90% 0%, rgb(165 180 252 / 0.28), transparent 70%),
+      radial-gradient(60% 70% at 0% 100%, rgb(129 140 248 / 0.18), transparent 70%),
+      linear-gradient(150deg, rgb(40 42 90 / 0.55), rgb(20 20 38 / 0.45) 60%, rgb(14 14 22 / 0.4));
   }
   .grid-fade {
     background-image:
@@ -121,14 +362,18 @@
     background-size: 44px 44px;
     mask-image: radial-gradient(ellipse at 30% 30%, black 20%, transparent 75%);
   }
-  .page-glow {
-    background:
-      radial-gradient(900px 380px at 100% -10%, rgb(var(--brand-glow) / 0.12), transparent 70%),
-      radial-gradient(700px 320px at -10% 110%, rgb(var(--brand-glow) / 0.07), transparent 70%),
-      #f6f7fb;
+
+  .skeleton {
+    border-radius: 0.5rem;
+    background: linear-gradient(90deg, rgb(60 20 50 / 0.06) 25%, rgb(60 20 50 / 0.02) 50%, rgb(60 20 50 / 0.06) 75%);
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+  [data-mode="dark"] .skeleton {
+    background-image: linear-gradient(90deg, rgb(255 255 255 / 0.05) 25%, rgb(255 255 255 / 0.1) 50%, rgb(255 255 255 / 0.05) 75%);
   }
   .select-chevron {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a909c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-position: right 0.85rem center;
     background-repeat: no-repeat;
     background-size: 18px;
@@ -141,11 +386,22 @@
   }
 }
 
+/* Theme switch: the new theme is revealed as an expanding circle (see lib/theme.ts). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  /* Entrance blur is inline (Motion); drop it so only a simple fade remains. */
+  [style*="blur("] {
+    filter: none !important;
   }
 }

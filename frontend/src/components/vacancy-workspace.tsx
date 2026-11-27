@@ -1,14 +1,15 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, Archive, BriefcaseBusiness, Check, ChevronRight, ClipboardList, Copy, Eye, FileText, History, LayoutDashboard, LockKeyhole, MapPin, Plus, Save, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2 } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AppHeader } from "@/components/app-frame";
 import { UserMenu } from "@/components/user-menu";
 import { Dialog, useConfirm } from "@/components/ui/dialog";
 import { Alert, Badge, Spinner } from "@/components/ui/feedback";
-import { Reveal } from "@/components/ui/motion";
-import { buttonClass, cardClass, cn, inputClass } from "@/components/ui/styles";
+import { Reveal, popHidden, popShown, popSpring, popTransition } from "@/components/ui/motion";
+import { buttonClass, cardClass, cn, inputClass, interactiveCardClass } from "@/components/ui/styles";
 import { adminRequest as request } from "@/lib/admin-api";
 import type { Identity } from "@/lib/api";
 import { editableBrief, type Brief, type Configuration, type Vacancy } from "@/lib/vacancies";
@@ -17,7 +18,9 @@ const base = "/staff/vacancies";
 const labelClass = "mb-1.5 block text-sm font-medium text-slate-700";
 const textareaClass = cn(inputClass, "py-3 leading-6");
 const statusTone = { draft: "warning", approved: "success", archived: "neutral" } as const;
-const selectClass = cn(inputClass, "h-11");
+const selectClass = cn(inputClass, "select-chevron h-11 appearance-none pr-10");
+const tints = ["from-violet-500/20", "from-amber-500/20", "from-sky-500/20", "from-emerald-500/20", "from-fuchsia-500/20"];
+const stepTones = ["from-violet-400 to-purple-700", "from-amber-400 to-orange-600", "from-emerald-400 to-teal-600"];
 
 export function VacancyWorkspace({ user, initialId }: { user: Identity; initialId: number | null }) {
   const [rows, setRows] = useState<Vacancy[]>([]);
@@ -49,7 +52,7 @@ export function VacancyWorkspace({ user, initialId }: { user: Identity; initialI
       setCreateOpen(false); setTitle(""); open(record.id);
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
-  return <div className="page-glow min-h-dvh text-slate-900">
+  return <div className="min-h-dvh text-slate-900">
     <AppHeader caption="Recruitment studio" account={<UserMenu user={user} />} nav={[
       { href: "/staff", label: "Workspace", icon: <LayoutDashboard /> },
       { href: "/staff/vacancies", label: "Vacancies", icon: <BriefcaseBusiness />, current: true },
@@ -62,19 +65,20 @@ export function VacancyWorkspace({ user, initialId }: { user: Identity; initialI
           <button onClick={() => setCreateOpen(true)} className={buttonClass()}><Plus aria-hidden />New vacancy</button>
         </Reveal>
         <Reveal delay={0.1} className="mt-7 grid gap-3 sm:grid-cols-3">
-          {[["01", "Define the role", "JD, seniority and responsibilities"], ["02", "AI prepares the scorecard", "Generation planned · no manual entry"], ["03", "HR reviews & approves", "Validated scorecard + immutable version"]].map(([n, title, detail]) => <div key={n} className={cn(cardClass, "flex items-start gap-3 p-4")}><span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-50 font-mono text-xs font-semibold text-brand-600">{n}</span><div><h2 className="text-sm font-semibold">{title}</h2><p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p></div></div>)}
+          {[["01", "Define the role", "JD, seniority and responsibilities"], ["02", "AI prepares the scorecard", "Generation planned · no manual entry"], ["03", "HR reviews & approves", "Validated scorecard + immutable version"]].map(([n, title, detail], index) => <div key={n} className={cn(interactiveCardClass, "flex items-start gap-3 p-4")}><span className={cn("grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br font-mono text-xs font-semibold text-white shadow-md", stepTones[index])}>{n}</span><div><h2 className="text-sm font-semibold">{title}</h2><p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p></div></div>)}
         </Reveal>
         <div className="mt-7 flex flex-wrap items-center gap-3">
-          <div className="relative min-w-48 flex-1"><Search aria-hidden className="absolute left-3 top-3.5 size-4 text-slate-400" /><input aria-label="Search vacancies" placeholder="Search assigned vacancies…" value={query} onChange={e => { setQuery(e.target.value); setOffset(0); }} className={cn(inputClass, "h-11 pl-10")} /></div>
-          <div className="w-44 shrink-0"><select aria-label="Vacancy status" value={filter} onChange={e => { setFilter(e.target.value); setOffset(0); }} className={selectClass}><option value="">All statuses</option>{["draft", "approved", "archived"].map(s => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></div>
+          <div className="relative min-w-48 flex-1"><Search aria-hidden className="absolute left-3 top-3.5 size-4 text-slate-400" /><input aria-label="Search vacancies" placeholder="Search assigned vacancies…" value={query} onChange={e => { setQuery(e.target.value); setOffset(0); }} className={cn(inputClass, "h-11 rounded-full pl-10")} /></div>
+          <div className="w-44 shrink-0"><select aria-label="Vacancy status" value={filter} onChange={e => { setFilter(e.target.value); setOffset(0); }} className={cn(selectClass, "rounded-full")}><option value="">All statuses</option>{["draft", "approved", "archived"].map(s => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></div>
           <span aria-live="polite" className="text-xs text-slate-500">{total} assigned</span>
         </div>
         {error && <Alert className="mt-4" action={<button className="underline" onClick={() => void reload()}>Retry</button>}>{error}</Alert>}
-        {loading ? <div role="status" className="flex items-center justify-center gap-3 py-20 text-sm text-slate-500"><Spinner />Loading vacancies…</div> : rows.length ? <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.map(v => <button key={v.id} onClick={() => open(v.id)} className={cn(cardClass, "group p-5 text-left transition hover:-translate-y-1 hover:border-brand-200 hover:shadow-lift")}>
-          <div className="flex items-center justify-between"><span className="grid size-11 place-items-center rounded-2xl bg-brand-50 text-brand-600"><BriefcaseBusiness aria-hidden className="size-5" /></span><Badge tone={statusTone[v.status]} dot>{v.status}</Badge></div>
-          <h2 className="mt-5 break-words text-lg font-semibold">{v.title}</h2><p className="mt-2 font-mono text-xs text-slate-400">VAC-{String(v.id).padStart(3, "0")}</p>
-          <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4"><span className="text-xs text-slate-500">{v.approved_version ? `Approved v${v.approved_version}` : "Awaiting approval"}{v.draft_id ? " · Draft available" : ""}</span><ArrowRight aria-hidden className="size-4 text-brand-600 transition group-hover:translate-x-1" /></div>
-        </button>)}</div> : <div className={cn(cardClass, "mt-5 px-6 py-16 text-center")}><BriefcaseBusiness aria-hidden className="mx-auto size-10 text-slate-300" /><h2 className="mt-4 font-semibold">No matching vacancies</h2><p className="mt-2 text-sm text-slate-500">Create a vacancy to get started. You will be assigned automatically.</p></div>}
+        {loading ? <div role="status" className="flex items-center justify-center gap-3 py-20 text-sm text-slate-500"><Spinner />Loading vacancies…</div> : rows.length ? <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.map((v, index) => <motion.button key={v.id} initial={{ opacity: 0, y: 32, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ ...popSpring, delay: Math.min(index, 8) * 0.08, opacity: { duration: 0.6, delay: Math.min(index, 8) * 0.08 } }} onClick={() => open(v.id)} className={cn(interactiveCardClass, "group overflow-hidden p-5 text-left")}>
+          <span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br to-transparent to-60% opacity-80", tints[index % tints.length])} />
+          <div className="flex items-center justify-between"><span className="grid size-11 place-items-center rounded-2xl bg-white/70 text-slate-700 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:text-white dark:ring-white/10"><BriefcaseBusiness aria-hidden className="size-5" /></span><Badge tone={statusTone[v.status]} dot>{v.status}</Badge></div>
+          <h2 className="mt-5 break-words text-lg font-semibold">{v.title}</h2><p className="mt-2 font-mono text-xs text-slate-500">VAC-{String(v.id).padStart(3, "0")}</p>
+          <div className="mt-6 flex items-center justify-between border-t border-slate-200/70 pt-4"><span className="text-xs text-slate-500">{v.approved_version ? `Approved v${v.approved_version}` : "Awaiting approval"}{v.draft_id ? " · Draft available" : ""}</span><ArrowRight aria-hidden className="size-4 text-brand-600 transition group-hover:translate-x-1" /></div>
+        </motion.button>)}</div> : <div className={cn(cardClass, "mt-5 px-6 py-16 text-center")}><BriefcaseBusiness aria-hidden className="mx-auto size-10 text-slate-400 motion-safe:animate-float" /><h2 className="mt-4 font-semibold">No matching vacancies</h2><p className="mt-2 text-sm text-slate-500">Create a vacancy to get started. You will be assigned automatically.</p></div>}
         {total > 12 && <div className="mt-5 flex justify-end gap-2"><button disabled={!offset || loading} onClick={() => setOffset(o => Math.max(0, o - 12))} className={buttonClass({ variant: "secondary" })}>Previous</button><button disabled={offset + 12 >= total || loading} onClick={() => setOffset(o => o + 12)} className={buttonClass({ variant: "secondary" })}>Next</button></div>}
       </>}
     </main>
@@ -139,15 +143,16 @@ function VacancyEditor({ id, user, onBack }: { id: number; user: Identity; onBac
     {notice && <Alert tone="success" className="mt-5">{notice}</Alert>}
     <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1.5" role="tablist" aria-label="Vacancy editor">
+        <div className="glass mb-4 flex flex-wrap items-center gap-1 rounded-full p-1.5" role="tablist" aria-label="Vacancy editor">
           {([["brief", "Role brief", FileText], ["scorecard", "Scorecard", SlidersHorizontal], ["preview", "Preview", Eye]] as const).map(([value, label, Icon]) => <button key={value} id={`tab-${value}`} role="tab" aria-controls={`panel-${value}`} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} onKeyDown={event => {
             const tabs = ["brief", "scorecard", "preview"] as const;
             const index = tabs.indexOf(value);
             const next = event.key === "ArrowRight" ? tabs[(index + 1) % 3] : event.key === "ArrowLeft" ? tabs[(index + 2) % 3] : event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[2] : null;
             if (next) { event.preventDefault(); setTab(next); document.getElementById(`tab-${next}`)?.focus(); }
-          }} onClick={() => setTab(value)} className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition", tab === value ? "bg-brand-50 text-brand-700 shadow-sm" : "text-slate-500 hover:bg-slate-50")}><Icon aria-hidden className="size-4" />{label}</button>)}
+          }} onClick={() => setTab(value)} className={cn("relative flex flex-1 items-center justify-center gap-2 rounded-full px-3 py-2.5 text-sm font-medium transition-colors", tab === value ? "text-slate-900" : "text-slate-500 hover:text-slate-900")}>{tab === value && <motion.span aria-hidden layoutId="vacancy-tab" transition={{ type: "spring", stiffness: 480, damping: 36 }} className="absolute inset-0 rounded-full bg-white shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10" />}<Icon aria-hidden className="relative size-4" /><span className="relative">{label}</span></button>)}
         </div>
         {brief ? <section id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
+          <motion.div key={tab} initial={popHidden} animate={popShown} transition={popTransition()}>
           {locked && <Alert tone="info" className="mb-4"><LockKeyhole aria-hidden className="mr-2 inline size-4" />{vacancy.status === "archived" ? "Archived vacancy. Configuration history is read-only." : "Approved snapshot. Create a new draft to make changes."}</Alert>}
           {tab === "brief" && <fieldset disabled={locked || busy} className={cn(cardClass, "min-w-0 space-y-5 p-5 sm:p-7")}>
             <div><h2 className="text-lg font-semibold">Define the role</h2><p className="mt-1 text-sm text-slate-500">Be specific about the work and the level of ownership.</p></div>
@@ -165,6 +170,7 @@ function VacancyEditor({ id, user, onBack }: { id: number; user: Identity; onBac
             <ScorecardReview version={version} dirty={dirty} />
             <Alert tone="info">This is an internal vacancy preview. It does not publish a public job or run candidate screening.</Alert>
           </div>}
+        </motion.div>
         </section> : <div className={cn(cardClass, "p-8 text-center text-sm text-slate-500")}>No active configuration. Start a new draft to continue.</div>}
       </div>
       <aside className="space-y-4 lg:sticky lg:top-24">

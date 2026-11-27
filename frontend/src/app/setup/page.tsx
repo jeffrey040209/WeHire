@@ -106,7 +106,7 @@ export default function SetupPage() {
         </div>}
 
         {view === "closed" && <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-          <span aria-hidden className="grid size-10 place-items-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200"><CircleSlash className="size-5" /></span>
+          <span aria-hidden className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-500 ring-1 ring-slate-200"><CircleSlash className="size-5" /></span>
           <p className="mt-4 text-sm leading-7 text-slate-600">Initial setup is unavailable or has already been completed. Sign in with an existing account, or contact your system administrator.</p>
         </div>}
 

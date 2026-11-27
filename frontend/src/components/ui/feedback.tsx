@@ -34,7 +34,7 @@ const alertTones = {
 /** Inline message. Errors use role="alert"; everything else is a polite status. */
 export function Alert({ tone = "danger", title, children, action, className }: { tone?: keyof typeof alertTones; title?: string; children: ReactNode; action?: ReactNode; className?: string }) {
   const { box, icon: Icon } = alertTones[tone];
-  return <div role={tone === "danger" ? "alert" : "status"} className={cn("flex items-start gap-3 rounded-xl border px-4 py-3 text-sm leading-6", box, className)}>
+  return <div role={tone === "danger" ? "alert" : "status"} className={cn("flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm leading-6 backdrop-blur-md", box, className)}>
     <Icon aria-hidden className="mt-0.5 size-[18px] shrink-0" />
     <div className="min-w-0 flex-1">{title && <p className="font-semibold">{title}</p>}<div>{children}</div></div>
     {action}

@@ -3,7 +3,6 @@
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ease } from "@/components/ui/motion";
 import { buttonClass, cn } from "@/components/ui/styles";
 
 type DialogProps = {
@@ -53,14 +52,14 @@ function DialogSurface({ onClose, title, description, icon, dismissible = true, 
     onCancel={event => { event.preventDefault(); if (dismissible) onClose(); }}
     className="fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto bg-transparent p-0 text-slate-900"
   >
-    <motion.div aria-hidden initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} onClick={() => { if (dismissible) onClose(); }} className="fixed inset-0 bg-slate-950/45 backdrop-blur-[3px]" />
+    <motion.div aria-hidden initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} onClick={() => { if (dismissible) onClose(); }} className="fixed inset-0 bg-[rgb(12_8_14/0.45)] backdrop-blur-md" />
     <div className="pointer-events-none relative flex min-h-full items-end justify-center p-3 sm:items-center sm:p-6">
       <motion.div
-        initial={{ opacity: 0, y: 24, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
+        initial={{ opacity: 0, y: 28, scale: 0.95, filter: "blur(6px)" }}
+        animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
         exit={{ opacity: 0, y: 12, scale: 0.98, transition: { duration: 0.16 } }}
-        transition={{ duration: 0.32, ease }}
-        className={cn("pointer-events-auto relative w-full rounded-3xl border border-slate-200/70 bg-white shadow-2xl shadow-slate-950/20", size === "sm" ? "max-w-md" : "max-w-lg")}
+        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        className={cn("glass-solid pointer-events-auto relative w-full rounded-[1.75rem]", size === "sm" ? "max-w-md" : "max-w-lg")}
       >
         <div className="flex items-start gap-4 px-6 pb-2 pt-6 sm:px-7 sm:pt-7">
           {icon && <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 [&_svg]:size-5">{icon}</span>}

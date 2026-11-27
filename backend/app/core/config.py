@@ -1,11 +1,13 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "WeHire API"
+    database_url: SecretStr | None = None
     cors_origins: list[str] = ["http://localhost:3012"]
 
     model_config = SettingsConfigDict(

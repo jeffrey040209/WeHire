@@ -79,11 +79,11 @@ def icon(name):
 
 NAV = {
     "candidate": {
-        "brand_sub": "Candidate experience",
-        "items": [("Find opportunities", "search"), ("My applications", "briefcase"), ("Messages", "message"),
-                  ("AI assistant", "sparkles"), ("My profile", "user")],
-        "kicker": "Candidate portal",
-        "url": "careers.wehire.app",
+        "brand_sub": "Candidate inputs",
+        "items": [("Resume submission", "upload"), ("DISC result upload", "image"),
+                  ("Clarification response", "message")],
+        "kicker": "Candidate inputs",
+        "url": "inputs.wehire.app",
     },
     "hr": {
         "brand_sub": "Recruitment workspace",
@@ -124,7 +124,7 @@ def render_page(idx, total, meta, body):
         <div class="nav-label">Menu</div>
         <nav class="nav">{items}</nav>
         <div class="spacer"></div>
-        <nav class="nav side-foot"><a>{icon('help')}Help and support</a><a>{icon('settings')}Settings</a></nav>
+        <nav class="nav side-foot"><a>{icon('help')}Help and support</a>{f"<a>{icon('settings')}Settings</a>" if portal == 'hr' else ''}</nav>
       </aside>
       <div class="main">
         <div class="topbar">
@@ -138,7 +138,8 @@ def render_page(idx, total, meta, body):
   </div>
 </section>"""
 
-TOTAL = 34
+EXCLUDED_SCREENS = {1, 3, 6, 22, 33, 34}
+TOTAL = 28
 
 def load(f):
     text = f.read_text()
@@ -195,8 +196,9 @@ def main():
             print(f"Preview: {prev / (stem + '.png')}")
             check_overflow(prev / f"{stem}.html", stem)
         return
-    files = sorted((ROOT / "screens").glob("[0-9][0-9].html"))
-    pages = [render_page(int(f.stem), TOTAL, *load(f)) for f in files]
+    files = [f for f in sorted((ROOT / "screens").glob("[0-9][0-9].html")) if int(f.stem) not in EXCLUDED_SCREENS]
+    assert len(files) == TOTAL
+    pages = [render_page(i, TOTAL, *load(f)) for i, f in enumerate(files, 1)]
     to_pdf(pages, ROOT / "prototype.html", OUT_PDF)
     print(f"Built {len(files)} pages -> {OUT_PDF}")
 

@@ -8,7 +8,8 @@ import { resolve } from "node:path";
 loadEnvConfig(resolve(__dirname, ".."), process.env.NODE_ENV === "development", console, true);
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Loopback browsers may use either hostname when the dev server binds inside Docker.
+  allowedDevOrigins: ["localhost", "127.0.0.1"],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

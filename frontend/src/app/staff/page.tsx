@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/feedback";
 import { Item, Stagger } from "@/components/ui/motion";
 import { buttonClass, cardClass, cn } from "@/components/ui/styles";
 import { UserMenu } from "@/components/user-menu";
-import { API_URL, type Identity } from "@/lib/api";
+import type { Identity } from "@/lib/api";
+import { SERVER_API_URL } from "@/lib/server-api";
 import { roleLabel } from "@/lib/roles";
 
 async function StaffWorkspace() {
@@ -21,7 +22,7 @@ async function StaffWorkspace() {
   try {
     const options = { headers: { Cookie: `wehire_session=${token}` }, cache: "no-store" as const };
     [identityResponse, accessResponse] = await Promise.all([
-      fetch(`${API_URL}/auth/me`, options), fetch(`${API_URL}/staff/access`, options),
+      fetch(`${SERVER_API_URL}/auth/me`, options), fetch(`${SERVER_API_URL}/staff/access`, options),
     ]);
   } catch {
     return <StatePanel icon={<CloudOff />} title="Workspace temporarily unavailable" message="Please try again shortly." retryHref="/staff"><SignOut variant="ghost" /></StatePanel>;

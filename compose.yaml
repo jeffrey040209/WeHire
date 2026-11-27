@@ -19,5 +19,71 @@ services:
       start_period: 10s
     stop_grace_period: 30s
 
+  backend:
+    build:
+      context: ./backend
+    init: true
+    environment:
+      APP_NAME: ${APP_NAME:-WeHire API}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in the root .env file}
+      # Keep URL-encoded credentials from DATABASE_URL; replace only its network endpoint.
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:3012"]}'
+      BOOTSTRAP_TOKEN: ${BOOTSTRAP_TOKEN:-}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      AUTH_SESSION_SECONDS: ${AUTH_SESSION_SECONDS:-28800}
+      AUTH_LOGIN_WINDOW_SECONDS: ${AUTH_LOGIN_WINDOW_SECONDS:-300}
+      AUTH_LOGIN_ACCOUNT_LIMIT: ${AUTH_LOGIN_ACCOUNT_LIMIT:-5}
+      AUTH_LOGIN_IP_LIMIT: ${AUTH_LOGIN_IP_LIMIT:-30}
+      AUTH_REGISTER_WINDOW_SECONDS: ${AUTH_REGISTER_WINDOW_SECONDS:-3600}
+      AUTH_REGISTER_EMAIL_LIMIT: ${AUTH_REGISTER_EMAIL_LIMIT:-3}
+      AUTH_REGISTER_IP_LIMIT: ${AUTH_REGISTER_IP_LIMIT:-10}
+      WATCHFILES_FORCE_POLLING: "true"
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8012}:8012"
+    volumes:
+      - ./backend/app:/workspace/backend/app:ro
+      - ./backend/alembic:/workspace/backend/alembic:ro
+      - ./backend/tests:/workspace/backend/tests:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8012/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    stop_grace_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+    init: true
+    environment:
+      # Only public browser configuration and the server-only API address are forwarded.
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8012}
+      INTERNAL_API_URL: http://backend:8012
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3012}:3012"
+    volumes:
+      - ./frontend/src:/workspace/frontend/src:ro
+      - ./frontend/public:/workspace/frontend/public:ro
+      - ./frontend/next.config.ts:/workspace/frontend/next.config.ts:ro
+      - ./frontend/tsconfig.json:/workspace/frontend/tsconfig.json:ro
+      - ./frontend/eslint.config.mjs:/workspace/frontend/eslint.config.mjs:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3012/sign-in').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 45s
+    stop_grace_period: 15s
+
 volumes:
   postgres_data:

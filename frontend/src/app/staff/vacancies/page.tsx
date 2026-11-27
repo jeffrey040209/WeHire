@@ -4,14 +4,15 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { PageSkeleton, StatePanel } from "@/components/app-frame";
 import { VacancyWorkspace } from "@/components/vacancy-workspace";
-import { API_URL, type Identity } from "@/lib/api";
+import type { Identity } from "@/lib/api";
+import { SERVER_API_URL } from "@/lib/server-api";
 
 async function ProtectedVacancies({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
   const token = (await cookies()).get("wehire_session")?.value;
   if (!token) redirect("/sign-in");
   let response: Response;
   try {
-    response = await fetch(`${API_URL}/auth/me`, { headers: { Cookie: `wehire_session=${token}` }, cache: "no-store" });
+    response = await fetch(`${SERVER_API_URL}/auth/me`, { headers: { Cookie: `wehire_session=${token}` }, cache: "no-store" });
   } catch {
     return <StatePanel icon={<CloudOff />} title="Vacancies unavailable" message="Please try again shortly." retryHref="/staff/vacancies" />;
   }

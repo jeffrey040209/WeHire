@@ -16,7 +16,7 @@ This repository currently contains the **development scaffold, PostgreSQL founda
 - FastAPI backend with environment-based settings, CORS and a tested health endpoint.
 - Next.js frontend with TypeScript, Tailwind CSS and the App Router.
 - Environment examples and local development configuration.
-- PostgreSQL-only Docker Compose setup with a readiness check and persistent named volume.
+- Development Docker Compose stack for PostgreSQL, FastAPI and Next.js, with readiness checks, source reload and persistent database storage.
 - Lazy PostgreSQL connection/session management, shared SQLAlchemy models and
   Alembic baseline plus identity/access migrations.
 - WeHire-managed email/password login, plain SHA-256 password hashes (explicit project choice), revocable opaque
@@ -178,7 +178,7 @@ JobStreet integration, candidate job browsing/tracking, scheduling and invitatio
 | Background processing | Python worker with persistent PostgreSQL job records | File extraction, embeddings, research and screening outside upload requests. | Proposed; queue implementation planned. |
 | Testing | pytest, HTTPX, FastAPI TestClient | API checks and future ownership, scoring and workflow tests. | Health, authentication, permissions, administration, setup, manual scorecards, immutability and PostgreSQL checks implemented; recruitment-processing tests planned. |
 | Frontend checks | ESLint, TypeScript and Next.js build | Linting, type validation and production build checks. | Configured in scaffold. |
-| Local database environment | Docker Compose, PostgreSQL 17 | Local-only database service, readiness check and persistent named volume. | Configured; frontend and backend still run on the host. |
+| Local development environment | Docker Compose, PostgreSQL 17, Python 3.12/uv and Node 24 images | Frontend/backend/database with isolated dependencies, health checks and source reload. | Implemented; host-based frontend/backend development remains supported. |
 | Backend dependency management | uv, pyproject.toml and uv.lock | Runtime/dev dependency declarations, locked resolution and local environments. | Migrated from pip requirements; dev tools are grouped separately. |
 
 These choices describe the target architecture. Do not assume adding a library
@@ -813,7 +813,7 @@ backend/
 frontend/             # Next.js App Router, TypeScript, Tailwind, src/, npm
   src/app/
 output/               # Workflow and UI prototype PDFs
-compose.yaml          # PostgreSQL-only local development service
+compose.yaml          # Development PostgreSQL, backend and frontend services
 .env.example          # Shared Compose, backend and public frontend settings
 .env                  # Local values; ignored by Git
 README.md             # Product direction and local development guide
@@ -821,7 +821,7 @@ README.md             # Product direction and local development guide
 
 ## Prerequisites
 
-- Docker Desktop, or Docker Engine with Docker Compose v2+ (for the local database)
+- Docker Desktop, or Docker Engine with Docker Compose v2+ (for the development stack)
 - Python 3.12 or newer
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) for backend dependency and environment management
 - A Node.js version supported by the installed Next.js release, with npm
@@ -839,7 +839,133 @@ README.md             # Product direction and local development guide
 No LLM credentials are needed. The public health endpoint works without a database;
 authentication, administration and vacancy setup require migrated PostgreSQL.
 
-## Run the backend
+## Docker development stack (delivery Step 5)
+
+Use the shared **root `.env`**. No backend/frontend copies are needed. PostgreSQL's
+existing service and `postgres_data` volume are retained; this does not create a
+replacement database for an existing `wehire` project.
+
+```bash
+# From the repository root. cp -n preserves an existing .env.
+cp -n .env.example .env
+# Set POSTGRES_PASSWORD and the matching URL-encoded DATABASE_URL privately.
+docker compose config --quiet
+docker compose up --build
+```
+
+This starts all three services with attached logs. For background startup:
+
+```bash
+docker compose up --build -d --wait
+docker compose ps
+```
+
+**Migrations are explicit**, including on the first start. In another terminal:
+
+```bash
+docker compose run --rm backend uv run --locked alembic upgrade head
+```
+
+Backend readiness checks call `/health` without querying PostgreSQL. Frontend
+readiness checks load `/sign-in`. A healthy container does not mean the schema
+has been migrated. After migration, open <http://localhost:3012>; API docs are at
+<http://localhost:8012/docs>. Use the existing administrator setup/account flow.
+These are development images, not production deployment images. No worker or AI
+service is added in this step.
+
+### Container networking and configuration
+
+| Caller | Address | Configuration |
+| --- | --- | --- |
+| Browser → backend | `http://localhost:8012` | Public `NEXT_PUBLIC_API_URL` from root `.env`. |
+| Next.js server → backend | `http://backend:8012` | Compose-only `INTERNAL_API_URL`, accessed through `lib/server-api.ts` with `server-only`. |
+| Backend/Alembic → database | `postgres:5432` | Compose sets `DATABASE_HOST`/`DATABASE_PORT`, replacing only the host/port of `DATABASE_URL`. |
+| Host tools → database | `127.0.0.1:54312` by default | `POSTGRES_PORT` and the host-based `DATABASE_URL`. |
+
+Keep the existing host-style `DATABASE_URL` in root `.env`. Its username,
+percent-encoded password, database and query parameters are preserved inside Docker;
+only networking changes. `POSTGRES_PASSWORD` remains the raw password. The frontend
+container receives only public API configuration, its internal API address and
+telemetry configuration—not database credentials, setup keys or authentication secrets.
+No `.env` files are copied into either image or mounted into the frontend.
+
+Use `localhost` consistently in the browser so frontend/API cookies share a hostname.
+`CORS_ORIGINS` must contain the frontend's exact browser origin. Local HTTP uses
+`AUTH_COOKIE_SECURE=false`; cookie, CSRF and authorisation logic are unchanged.
+Container servers bind to `0.0.0.0`, while published host ports bind only to `127.0.0.1`.
+Next.js development assets explicitly allow the loopback hostnames `localhost`
+and `127.0.0.1`; backend CORS remains a separate exact-origin check.
+
+Default host ports are frontend **3012**, backend **8012**, PostgreSQL **54312**.
+If they conflict, set `FRONTEND_PORT`, `BACKEND_PORT` and/or `POSTGRES_PORT` in root
+`.env`, and update `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS` and the host database URL
+accordingly. Internal service ports remain unchanged. Host-based development can
+leave `INTERNAL_API_URL` empty to use the browser API address as its server fallback.
+
+### Source reload and dependency updates
+
+Backend `app/`, migrations and tests are read-only bind mounts. Uvicorn watches
+`app/` with polling enabled for Docker Desktop. Frontend source, public files and
+selected configuration files are bind-mounted; Next.js refreshes source changes.
+Edit source on the host. Container dependencies live in `/opt/venv` (backend) and
+`/workspace/frontend/node_modules` (frontend), separate from host dependencies.
+The container's `.next` output also stays separate from host builds.
+
+After changing `pyproject.toml`/`uv.lock` or `package.json`/`package-lock.json`, rebuild
+the affected image; do not copy a macOS `.venv` or `node_modules` into Linux containers:
+
+```bash
+docker compose up --build -d backend
+docker compose up --build -d frontend
+```
+
+After changing root `.env`, recreate the affected services with `docker compose up -d`.
+Next.js configuration changes may restart its dev server. Backend settings changes
+require recreating the backend. Source reload does not install new dependencies or
+apply migrations automatically.
+
+### Logs, checks and shutdown
+
+```bash
+docker compose logs -f backend frontend
+docker compose exec backend uv run --locked pytest -q
+docker compose exec frontend npm run lint
+docker compose run --rm --no-deps frontend npm run build
+docker compose stop
+docker compose up -d --wait
+# Remove containers/network while retaining database data:
+docker compose down
+```
+
+Do not use `down -v`, remove volumes or reset existing databases. Keep the Compose
+project name stable to reconnect to `wehire_postgres_data`. Stop any host-based
+frontend/backend using the same ports before starting the corresponding containers.
+
+PostgreSQL integration tests require a **separate empty test database**. Create a
+new development-only test database, then pass a private `TEST_DATABASE_URL` using
+the internal `postgres:5432` address when running tests inside the backend container.
+The test fixture refuses a non-empty database; never point it at development data.
+Without this variable, PostgreSQL-specific checks are skipped. The database-only
+test procedure below remains available for host-based test runs.
+
+Troubleshooting:
+
+- **Port already allocated:** stop the conflicting host process/service, or change
+  host ports and their matching browser/database configuration as described above.
+- **Protected pages cannot reach the API:** verify the frontend container uses
+  `INTERNAL_API_URL=http://backend:8012`; browsers must still use the published host URL.
+- **Login/CSRF errors:** use one browser hostname, the correct `CORS_ORIGINS` and
+  local cookie settings; inspect backend logs and confirm migrations were applied.
+- **Missing tables:** run the explicit Alembic command. Health checks do not migrate.
+- **Changed credentials on an old volume:** PostgreSQL bootstrap variables apply
+  only on first initialisation. Manage existing database accounts explicitly; do not delete data.
+- **Source changes not appearing:** check Docker Desktop file-sharing access and
+  the mounted source paths. Restart the relevant dev service if necessary; rebuild
+  when dependencies or Dockerfiles change.
+- **Image/package downloads fail:** check Docker registry/network access. Build
+  contexts exclude secrets, host dependencies and generated build artefacts.
+
+## Run the backend on the host (alternative)
 
 From the repository root:
 
@@ -901,8 +1027,9 @@ docker compose exec -T postgres sh -c 'pg_isready -h 127.0.0.1 -U "$POSTGRES_USE
 
 Use `config --quiet` to validate without printing resolved credentials.
 The health check establishes server readiness; migrations and integration tests
-below verify authenticated access from the backend. Docker Compose starts only
-PostgreSQL; run the backend and frontend separately with the commands above/below.
+below verify authenticated access from the backend. `up ... postgres` starts only
+the database; omit the service name to start the full stack, or use host commands
+for the backend and frontend.
 
 Use **one root `.env` and one root `.env.example`** for the whole repository.
 Do not create backend/frontend copies; Next.js may give local copies precedence.
@@ -910,16 +1037,19 @@ Do not create backend/frontend copies; Next.js may give local copies precedence.
 | Variables in root `.env` | Used by | Purpose |
 | --- | --- | --- |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` | Docker Compose | Initialise PostgreSQL and publish its local port. |
-| `DATABASE_URL`, `APP_NAME`, `CORS_ORIGINS`, `AUTH_*` | FastAPI and Alembic | Database access, backend settings, cookie security, expiry and login limits. |
-| `NEXT_PUBLIC_API_URL` | Next.js | Public API address, embedded at frontend build time. |
+| `DATABASE_URL`, `APP_NAME`, `CORS_ORIGINS`, `AUTH_*`, `BOOTSTRAP_TOKEN` | FastAPI and Alembic | Server-only backend settings. Compose supplies database host/port overrides. |
+| `NEXT_PUBLIC_API_URL` | Browser/Next.js | Public browser API address. |
+| `INTERNAL_API_URL` | Next.js server only | Optional server API override; Compose uses `http://backend:8012`. |
+| `FRONTEND_PORT`, `BACKEND_PORT` | Docker Compose | Published host ports; application container ports remain fixed. |
 
 FastAPI reads root `.env` directly. `frontend/next.config.ts` loads it through
 `@next/env`; Compose reads it by default when run from the root. Existing process
-environment variables take precedence. Compose passes only its explicitly listed
-PostgreSQL variables into the database container.
+environment variables take precedence. Compose explicitly forwards only the settings
+needed by each service; the frontend does not receive database or authentication secrets.
 
 Edit `DATABASE_URL` in the same file to match the PostgreSQL username, password,
-port and database name. The backend runs on the host, so use `127.0.0.1:54312`.
+port and database name. For host-based commands, use `127.0.0.1:54312`. Compose
+overrides the backend connection endpoint to `postgres:5432` without changing credentials.
 Use the `postgresql+psycopg` driver and percent-encode special password characters
 such as `@`, `%` and `/` in the URL only. Keep the raw password in
 `POSTGRES_PASSWORD`; single-quote it if it contains `$` or `#` to avoid dotenv
@@ -952,8 +1082,8 @@ docker compose up -d --wait postgres
 
 Do not use `docker compose down -v` or delete the volume to troubleshoot; those
 actions remove stored data. No database is reset automatically by the application.
-An existing designated development PostgreSQL instance may also be used by setting
-root `.env` appropriately; Docker is not required for `/health`.
+The host-based alternative can use an existing designated development PostgreSQL
+instance by setting root `.env` appropriately; Docker is not required for `/health`.
 
 ### Apply migrations
 
@@ -1295,13 +1425,13 @@ session-retention maintenance are planned. Administrators can set passwords and 
 accounts now; do not claim recovery or production deployment checks are complete.
 DISC remains a separate future application record, never part of screening scores.
 
-## Run the frontend
+## Run the frontend on the host (alternative)
 
 In a second terminal, from the repository root:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 

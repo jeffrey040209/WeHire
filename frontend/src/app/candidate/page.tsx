@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/feedback";
 import { Item, Stagger } from "@/components/ui/motion";
 import { cardClass, cn } from "@/components/ui/styles";
 import { Avatar, UserMenu } from "@/components/user-menu";
-import { API_URL, type Identity } from "@/lib/api";
+import type { Identity } from "@/lib/api";
+import { SERVER_API_URL } from "@/lib/server-api";
 
 const capabilities = [
   { label: "Resume Submission", text: "Upload a PDF or DOCX resume for the vacancy HR has set up for you.", icon: <FileText /> },
@@ -20,7 +21,7 @@ async function CandidateAccount() {
   if (!token) redirect("/sign-in");
   let response: Response;
   try {
-    response = await fetch(`${API_URL}/auth/me`, { headers: { Cookie: `wehire_session=${token}` }, cache: "no-store" });
+    response = await fetch(`${SERVER_API_URL}/auth/me`, { headers: { Cookie: `wehire_session=${token}` }, cache: "no-store" });
   } catch { return <StatePanel theme="candidate" icon={<CloudOff />} title="Account unavailable" message="Your account is temporarily unavailable. Please try again shortly." retryHref="/candidate" />; }
   if (response.status === 401) redirect("/sign-in");
   if (!response.ok) return <StatePanel theme="candidate" icon={<CloudOff />} title="Account unavailable" message="Unable to verify your account. Please try again." retryHref="/candidate" />;

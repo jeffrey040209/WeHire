@@ -3,7 +3,8 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { PageSkeleton, StatePanel } from "@/components/app-frame";
-import { API_URL, type Identity } from "@/lib/api";
+import type { Identity } from "@/lib/api";
+import { SERVER_API_URL } from "@/lib/server-api";
 import { AdminConsole } from "@/components/admin-console";
 
 async function ProtectedAdmin() {
@@ -12,7 +13,7 @@ async function ProtectedAdmin() {
   if (!token) redirect("/sign-in");
   let response: Response;
   try {
-    response = await fetch(`${API_URL}/auth/me`, { headers: { Cookie: `wehire_session=${token}` }, cache: "no-store" });
+    response = await fetch(`${SERVER_API_URL}/auth/me`, { headers: { Cookie: `wehire_session=${token}` }, cache: "no-store" });
   } catch {
     return <StatePanel icon={<CloudOff />} title="Administration unavailable" message="Administration is temporarily unavailable. Please try again shortly." retryHref="/admin" />;
   }

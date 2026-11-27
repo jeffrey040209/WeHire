@@ -11,7 +11,8 @@ from app.core.config import get_settings
 
 def get_database_url() -> URL:
     """Read the secret only when a database operation is requested."""
-    secret = get_settings().database_url
+    settings = get_settings()
+    secret = settings.database_url
     if secret is None or not secret.get_secret_value().strip():
         raise RuntimeError("DATABASE_URL is required for database operations.")
     try:
@@ -20,6 +21,10 @@ def get_database_url() -> URL:
         raise ValueError("DATABASE_URL is not a valid database connection URL.") from None
     if url.drivername != "postgresql+psycopg":
         raise ValueError("DATABASE_URL must use the postgresql+psycopg driver.")
+    if settings.database_host is not None:
+        url = url.set(host=settings.database_host)
+    if settings.database_port is not None:
+        url = url.set(port=settings.database_port)
     return url
 
 

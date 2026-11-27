@@ -8,6 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "WeHire API"
     database_url: SecretStr | None = None
+    # Compose overrides networking only; credentials remain in the existing secret URL.
+    database_host: str | None = Field(default=None, min_length=1, max_length=253)
+    database_port: int | None = Field(default=None, ge=1, le=65535)
     cors_origins: list[str] = ["http://localhost:3012"]
 
     bootstrap_token: SecretStr | None = None

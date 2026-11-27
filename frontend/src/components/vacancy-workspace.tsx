@@ -8,7 +8,7 @@ import { AppHeader } from "@/components/app-frame";
 import { UserMenu } from "@/components/user-menu";
 import { Dialog, useConfirm } from "@/components/ui/dialog";
 import { Alert, Badge, Spinner } from "@/components/ui/feedback";
-import { Reveal, popHidden, popShown, popSpring, popTransition } from "@/components/ui/motion";
+import { Reveal, RollingNumber, popHidden, popShown, popSpring, popTransition } from "@/components/ui/motion";
 import { buttonClass, cardClass, cn, inputClass, interactiveCardClass } from "@/components/ui/styles";
 import { adminRequest as request } from "@/lib/admin-api";
 import type { Identity } from "@/lib/api";
@@ -70,7 +70,7 @@ export function VacancyWorkspace({ user, initialId }: { user: Identity; initialI
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <div className="relative min-w-48 flex-1"><Search aria-hidden className="absolute left-3 top-3.5 size-4 text-slate-400" /><input aria-label="Search vacancies" placeholder="Search assigned vacancies…" value={query} onChange={e => { setQuery(e.target.value); setOffset(0); }} className={cn(inputClass, "h-11 rounded-full pl-10")} /></div>
           <div className="w-44 shrink-0"><select aria-label="Vacancy status" value={filter} onChange={e => { setFilter(e.target.value); setOffset(0); }} className={cn(selectClass, "rounded-full")}><option value="">All statuses</option>{["draft", "approved", "archived"].map(s => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></div>
-          <span aria-live="polite" className="text-xs text-slate-500">{total} assigned</span>
+          <span className="text-xs tabular-nums text-slate-500"><span className="sr-only" aria-live="polite">{total} assigned</span><span aria-hidden><RollingNumber value={total} delay={0} /> assigned</span></span>
         </div>
         {error && <Alert className="mt-4" action={<button className="underline" onClick={() => void reload()}>Retry</button>}>{error}</Alert>}
         {loading ? <div role="status" className="flex items-center justify-center gap-3 py-20 text-sm text-slate-500"><Spinner />Loading vacancies…</div> : rows.length ? <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.map((v, index) => <motion.button key={v.id} initial={{ opacity: 0, y: 32, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ ...popSpring, delay: Math.min(index, 8) * 0.08, opacity: { duration: 0.6, delay: Math.min(index, 8) * 0.08 } }} onClick={() => open(v.id)} className={cn(interactiveCardClass, "group overflow-hidden p-5 text-left")}>

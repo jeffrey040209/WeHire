@@ -1,7 +1,8 @@
 "use client";
 
-import { MotionConfig, animate, motion, useReducedMotion, type Variants } from "motion/react";
-import { useEffect, useRef, type ReactNode } from "react";
+import NumberFlow, { NumberFlowGroup, continuous } from "@number-flow/react";
+import { MotionConfig, motion, type Variants } from "motion/react";
+import { useEffect, useState, type ReactNode } from "react";
 
 /** Honours the operating-system "reduce motion" setting for every Motion animation. */
 export function MotionProvider({ children }: { children: ReactNode }) {
@@ -61,22 +62,33 @@ export function Reveal({ children, className, as = "div", delay = 0, ...rest }: 
   return <Component className={className} initial="hidden" animate="show" variants={{ hidden: popHidden, show: { ...popShown, transition: popTransition(delay) } }} {...rest}>{children}</Component>;
 }
 
-/** Animated number for dashboards. Screen readers get the final value only. */
-export function CountUp({ value, className }: { value: number; className?: string }) {
-  const node = useRef<HTMLSpanElement>(null);
-  const from = useRef(0);
-  const reduce = useReducedMotion();
+/*
+ * Odometer-style rolling numbers (NumberFlow). Each digit spins like a wheel; with the
+ * `continuous` plugin it rolls through every value in between (0 → 1 → … → 6).
+ * NumberFlow exposes the value to screen readers (role="img" + aria-label) and respects
+ * the reduced-motion setting by default.
+ */
+const rollTiming = {
+  spinTiming: { duration: 1300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
+  transformTiming: { duration: 750, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+  opacityTiming: { duration: 400, easing: "ease-out" },
+};
+
+/**
+ * Rolling number. Starts at 0 and rolls up to `value` shortly after mount (so it plays with
+ * the page entrance), then rolls between values whenever `value` changes.
+ */
+export function RollingNumber({ value, className, delay = 250 }: { value: number; className?: string; delay?: number }) {
+  const [shown, setShown] = useState(0);
   useEffect(() => {
-    const element = node.current;
-    if (!element) return;
-    const start = from.current;
-    from.current = value;
-    if (reduce || start === value) { element.textContent = value.toLocaleString(); return; }
-    const controls = animate(start, value, { duration: 1.1, ease, onUpdate: latest => { element.textContent = Math.round(latest).toLocaleString(); } });
-    return () => controls.stop();
-  }, [value, reduce]);
-  return <span className={className}><span aria-hidden ref={node}>0</span><span className="sr-only">{value.toLocaleString()}</span></span>;
+    const timer = setTimeout(() => setShown(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return <NumberFlow value={shown} plugins={[continuous]} willChange className={className} {...rollTiming} />;
 }
+
+/** Keeps several rolling numbers in one line (e.g. "1–25 of 80") moving together. */
+export { NumberFlowGroup as RollingGroup };
 
 /** Feeds the pointer position to `.spotlight` cards so their glow follows the cursor. */
 export function SpotlightTracker() {

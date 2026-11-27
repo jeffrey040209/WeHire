@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { AppHeader, PageSkeleton, StatePanel } from "@/components/app-frame";
 import { SignOut } from "@/components/sign-out";
 import { Badge } from "@/components/ui/feedback";
-import { CountUp, Item, Stagger } from "@/components/ui/motion";
+import { Item, RollingNumber, Stagger } from "@/components/ui/motion";
 import { HeroTrail } from "@/components/ui/hero-trail";
 import { buttonClass, cardClass, cn } from "@/components/ui/styles";
 import { UserMenu } from "@/components/user-menu";
@@ -66,7 +66,7 @@ async function StaffWorkspace() {
       <Stagger as="ul" aria-label="Workspace summary" className="mt-5 grid gap-4 sm:grid-cols-3" delay={0.25}>
         {tiles.map(tile => <Item as="li" key={tile.label} lift className={cn(cardClass, "spotlight p-5")}>
           <div className="flex items-center justify-between"><p className="text-sm font-medium text-slate-500">{tile.label}</p><span aria-hidden className={cn("grid size-9 place-items-center rounded-xl bg-gradient-to-br text-white shadow-md [&_svg]:size-[18px]", tile.tone)}>{tile.icon}</span></div>
-          <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums"><CountUp value={tile.value} /></p>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums"><RollingNumber value={tile.value} delay={400} /></p>
           <p className="mt-1 truncate text-xs text-slate-500" title={tile.detail}>{tile.detail}</p>
         </Item>)}
         <Item as="li" lift className={cn(cardClass, "spotlight p-5")}>

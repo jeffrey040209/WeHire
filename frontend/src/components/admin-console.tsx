@@ -14,7 +14,7 @@ import { Dialog, useConfirm } from "@/components/ui/dialog";
 import { Alert, Badge, Skeleton, Spinner } from "@/components/ui/feedback";
 import { FormMessage, PasswordField, TextField } from "@/components/ui/form";
 import { ActionMenu, type MenuAction } from "@/components/ui/menu";
-import { CountUp, ease, popHidden, popShown, popSpring, popTransition } from "@/components/ui/motion";
+import { RollingGroup, RollingNumber, ease, popHidden, popShown, popSpring, popTransition } from "@/components/ui/motion";
 import { buttonClass, cardClass, cn, inputClass } from "@/components/ui/styles";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Avatar, UserMenu } from "@/components/user-menu";
@@ -265,7 +265,7 @@ export function AdminConsole({ user }: { user: Identity }) {
     {section === item && <motion.span layoutId={`admin-nav-${variant}`} transition={{ type: "spring", stiffness: 500, damping: 38 }} className={cn("absolute inset-0 bg-white shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10", variant === "side" ? "rounded-xl" : "rounded-lg")} />}
     <span className={cn("relative", section === item ? "text-brand-600" : "text-slate-400")}>{icons[item]}</span>
     <span className="relative flex-1">{labels[item]}</span>
-    <span className={cn("relative rounded-md px-1.5 py-0.5 text-xs tabular-nums", section === item ? "bg-brand-50 text-brand-700" : "bg-slate-100 text-slate-500")}>{summary[item] ?? "—"}</span>
+    <span className={cn("relative rounded-md px-1.5 py-0.5 text-xs tabular-nums", section === item ? "bg-brand-50 text-brand-700" : "bg-slate-100 text-slate-500")}>{summary[item] === undefined ? "—" : <RollingNumber value={summary[item]} delay={500} />}</span>
   </button>;
 
   return <div className="min-h-dvh text-slate-900 lg:grid lg:grid-cols-[284px_minmax(0,1fr)]">
@@ -309,7 +309,7 @@ export function AdminConsole({ user }: { user: Identity }) {
           {sections.map((item, index) => <motion.li key={item} initial={popHidden} animate={{ ...popShown, y: section === item ? -6 : 0, scale: section === item ? 1.03 : 1 }} whileHover={{ y: -8 }} transition={popTransition(0.08 * index)}>
             <button disabled={busy} onClick={() => selectSection(item)} aria-pressed={section === item} className={cn(cardClass, "spotlight group relative h-full w-full overflow-hidden p-4 text-left transition-shadow hover:shadow-lift active:scale-[0.99] disabled:opacity-60 sm:p-5", section === item && "border-brand-200 ring-2 ring-brand-100 dark:border-brand-200")}>
               <div className="flex items-start justify-between gap-2"><span className="text-xs font-medium uppercase tracking-wide text-slate-500">{labels[item]}</span><span aria-hidden className={cn("grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-white shadow-md transition group-hover:scale-110 group-hover:rotate-3 [&_svg]:size-4", tones[item])}>{icons[item]}</span></div>
-              <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight">{summary[item] === undefined ? <Skeleton className="h-9 w-14" /> : <CountUp value={summary[item]} />}</p>
+              <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight">{summary[item] === undefined ? <Skeleton className="h-9 w-14" /> : <RollingNumber value={summary[item]} delay={300} />}</p>
               <p className="mt-1 text-xs text-slate-500">Current records</p>
             </button>
           </motion.li>)}
@@ -379,7 +379,7 @@ export function AdminConsole({ user }: { user: Identity }) {
           </motion.div>}
 
           <nav aria-label="Pagination" className="flex flex-col gap-3 border-t border-slate-200/70 px-4 py-3.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <p aria-live="polite">{total ? `${page * 25 + 1}–${Math.min((page + 1) * 25, total)} of ${total}` : "0 records"}<span className="text-slate-400"> · Page {page + 1} of {pageCount}</span></p>
+            <p className="tabular-nums"><span className="sr-only" aria-live="polite">{total ? `${page * 25 + 1}–${Math.min((page + 1) * 25, total)} of ${total} · Page ${page + 1} of ${pageCount}` : "0 records"}</span><span aria-hidden><RollingGroup>{total ? <><RollingNumber value={page * 25 + 1} delay={0} />–<RollingNumber value={Math.min((page + 1) * 25, total)} delay={0} /> of <RollingNumber value={total} delay={0} /></> : "0 records"}<span className="text-slate-400"> · Page <RollingNumber value={page + 1} delay={0} /> of <RollingNumber value={pageCount} delay={0} /></span></RollingGroup></span></p>
             <div className="flex gap-2">
               <button className={buttonClass({ variant: "secondary", size: "sm", className: "flex-1 sm:flex-none" })} disabled={busy || loading || page === 0} onClick={() => setPage(page - 1)}><ChevronLeft aria-hidden />Previous</button>
               <button className={buttonClass({ variant: "secondary", size: "sm", className: "flex-1 sm:flex-none" })} disabled={busy || loading || (page + 1) * 25 >= total} onClick={() => setPage(page + 1)}>Next<ChevronRight aria-hidden /></button>

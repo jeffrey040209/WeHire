@@ -15,6 +15,9 @@ from app.db.session import get_db_session
 from app.db.soft_delete import soft_delete
 from app.models import Administrator, AdminSetup, Application, AuthSession, Role, User, UserRole, Vacancy, VacancyAssignment
 from app.services.identity import add_role
+from app.services import vacancies as vacancy_service
+from app.schemas.vacancy import RoleBriefInput
+from app.api.errors import vacancy_call
 
 router = APIRouter(prefix="/admin", tags=["administration"], dependencies=[Depends(require_admin)])
 RecordId = Annotated[int, Path(gt=0)]
@@ -246,25 +249,23 @@ def create_vacancy(payload: VacancyInput, auth: AuthContext = Depends(require_ad
     title = payload.title.strip()
     if not title:
         raise HTTPException(422, "Enter a vacancy title")
-    record = Vacancy(title=title)
-    db.add(record)
-    commit(db)
+    result = vacancy_call(vacancy_service.create, db, RoleBriefInput(title=title), auth.user.id)
+    record = get_record(db, Vacancy, result["id"])
     return {"id": record.id, "title": record.title, **dates(record)}
 
 
 @router.patch("/vacancies/{vacancy_id}")
 def update_vacancy(vacancy_id: RecordId, payload: VacancyInput, auth: AuthContext = Depends(require_admin_mutation), db: Session = Depends(get_db_session)) -> dict:
-    record = get_record(db, Vacancy, vacancy_id)
     if not payload.title.strip():
         raise HTTPException(422, "Enter a vacancy title")
-    record.title = payload.title.strip()
-    commit(db)
-    return {"id": record.id, "title": record.title, **dates(record)}
+    vacancy = vacancy_call(vacancy_service.rename_title, db, vacancy_id, auth.user.id, payload.title.strip())
+    return {"id": vacancy.id, "title": vacancy.title, **dates(vacancy)}
 
 
 @router.delete("/vacancies/{vacancy_id}", status_code=204)
 def delete_vacancy(vacancy_id: RecordId, auth: AuthContext = Depends(require_admin_mutation), db: Session = Depends(get_db_session)) -> None:
-    soft_delete(db, get_record(db, Vacancy, vacancy_id))
+    vacancy = vacancy_call(vacancy_service.scoped, db, vacancy_id, auth.user.id, lock=True)
+    soft_delete(db, vacancy)
     commit(db)
 
 

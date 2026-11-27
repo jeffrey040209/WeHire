@@ -11,7 +11,7 @@ source-linked evidence and explanations that recruiters can review.
 
 ## Current implementation
 
-This repository currently contains the **development scaffold, PostgreSQL foundation and custom authentication/access controls**:
+This repository currently contains the **development scaffold, PostgreSQL foundation, custom authentication/access controls and role-brief entry and scorecard review/approval foundations**:
 
 - FastAPI backend with environment-based settings, CORS and a tested health endpoint.
 - Next.js frontend with TypeScript, Tailwind CSS and the App Router.
@@ -28,29 +28,147 @@ This repository currently contains the **development scaffold, PostgreSQL founda
 - One-time administrator setup and a protected console for accounts, roles,
   vacancy records, assignments and applications; the provisioning CLI is removed.
 
-Full recruitment screens, uploads, agent workflows, scoring, file storage and DISC
+Role-brief forms, read-only scorecard review, version history and assigned-HR approval foundations are implemented. AI scorecard generation is planned; no manual scorecard entry is required or accepted by the vacancy APIs.
+Candidate uploads, agent workflows, screening execution, file storage and DISC
 interpretation are **planned, not implemented**. The sections below describe the intended product and architecture.
 
 **Selected database: PostgreSQL.** The planned design stores application records
 and original uploaded files in PostgreSQL, using `BYTEA` for binary content and
-pgvector for project-document embeddings. Connection/session infrastructure, identity tables and minimal vacancy/application
-access records are implemented. Full recruitment schemas, file storage and AI
-libraries remain planned.
+pgvector for project-document embeddings. Connection/session infrastructure, identity/access records and versioned manual vacancy configurations are implemented.
+Remaining recruitment schemas, file storage and AI libraries remain planned.
+
+
+## Role brief and AI scorecard foundation (delivery Step 4, revised)
+
+**Implemented:** open **Staff workspace → Vacancies** (`/staff/vacancies`).
+This is an internal workspace; it neither publishes jobs nor runs screening.
+
+1. HR or a hiring manager creates a vacancy. The backend assigns the creator atomically.
+   An administrator assigns additional staff and the HR reviewer through **Staff assignments**.
+2. Enter the role title, JD, responsibilities, seniority, location and employment type.
+   **Save role brief** works without any scorecard. Partial briefs may be saved with a valid
+   title; incomplete details block final approval, not saving.
+3. The **Scorecard** tab is a review view, with no criterion, weight, mandatory-rule or anchor
+   input fields. New drafts show **Awaiting AI generation** and a disabled **Generate scorecard**
+   button with an explanation. Generation is not implemented and sends no model request.
+4. In delivery **Step 7**, AI will propose mandatory rules, weighted criteria and five evidence
+   anchors (0–4) per criterion from the saved brief. The backend will validate the proposal;
+   HR will review it and request changes in plain language rather than filling blank fields.
+   Initial generation will not require project RAG. Later, short-brief drafting will also
+   generate JD/responsibilities with authorised project context where available.
+5. Existing saved scorecards remain visible for review; they are not relabelled as newly
+   AI-generated. Public vacancy create/update APIs accept **role details only** and reject
+   scorecard, ownership, policy and approval fields. Internal structured scorecard schemas
+   and persistence are retained for the future generation service.
+6. Saving changed role details retires this draft's old rules/criteria/anchors through
+   soft deletion, returning it to **Awaiting AI generation**. A no-op save preserves existing
+   scorecard contents. Earlier approved versions are never modified. This prevents approval
+   of a scorecard based on outdated role context.
+7. **Assigned HR only** may approve a complete brief and valid saved scorecard. Exactly 100%
+   non-negative weights and anchors 0–4 remain required. A role-only draft cannot be approved
+   as screening-ready. Hiring managers and unassigned administrators cannot bypass approval.
+8. Approved snapshots remain immutable, including PostgreSQL trigger protection. Create a
+   new draft for changes. Current revisions and vacancy-row locks prevent stale/concurrent
+   edits. Draft discard retains rows, and version numbers are never reused.
+9. Studio **Archive** makes a vacancy read-only while retaining assignment-based history
+   access. Administrator **soft deletion** additionally revokes assignment/application access;
+   configuration history remains stored. Neither action physically deletes records.
+
+Existing vacancy IDs, titles, assignments and application links are retained. No new migration
+or environment variable is needed for this revision. Candidate interactions remain limited to
+Resume Submission, DISC Result Upload and Clarification Response.
+
+**Scoring contract (future screening):** points = `weight × evidenced rating / 4`, using
+`Decimal`, rounding half-up to 2 decimals per criterion and summing those rounded points.
+Mandatory rules are separate. Missing evidence remains unknown and goes to clarification/human
+review; never silently assign zero or renormalise weights. DISC never contributes to scoring.
+
+### Step 4 backend structure and data
+
+| Module | Responsibility |
+| --- | --- |
+| `models/identity.py` | Stable existing vacancy IDs/access relationships; lifecycle relationship. |
+| `models/vacancy.py` | `vacancy_lifecycles` (1:1 status extension), `vacancy_configurations` (1:many versions), `eligibility_rules`, `screening_criteria`, `rating_anchors`. |
+| `schemas/vacancy.py` | Role-brief-only public inputs; separate internal scorecard schemas for future generation. |
+| `crud/vacancies.py` | Domain SQL reads/writes, scoped lookup and row locking; no HTTP handling or commits. |
+| `services/vacancies.py` | Independent brief saves, stale-scorecard retirement, approval/lifecycle rules and transaction completion. |
+| `api/routes/vacancies.py` | HTTP contracts, staff/HR/CSRF dependencies and error mapping; explicitly registered in `main.py`. |
+| `alembic/versions/0004_vacancy_scorecards.py` | Forward backfill and immutability triggers; does not rebuild or reset existing tables. |
+
+New domain APIs should follow `routes → services → crud → models`, with contracts under
+`schemas/`; one CRUD module per domain, not per endpoint. Existing non-vacancy identity/admin
+code remains in its established modules; a broader refactor is outside Step 4.
+New tables use integer identity IDs and place approval timestamps before `created_at`,
+`updated_at`, `deleted_at`. A related lifecycle table preserves the original vacancy table's
+timestamp order. Approver references remain valid when accounts are soft-deleted.
+
+### Scoped vacancy APIs
+
+All endpoints below require a current staff session and vacancy assignment (except creation,
+which assigns its caller). Every write also requires trusted Origin and CSRF. List/detail
+return only authorised records; cross-vacancy version IDs return 404. Administrator status
+does not bypass scope. No candidate-facing vacancy endpoints were added.
+
+| API | Purpose |
+| --- | --- |
+| `GET /staff/vacancies` | Search/paginate assigned vacancies; optional `status=draft/approved/archived`. |
+| `POST /staff/vacancies` | Create from role details only; first draft and creator assignment are atomic. |
+| `GET /staff/vacancies/{id}` | Detail, preview/readiness and retained active configuration versions. |
+| `POST /staff/vacancies/{id}/drafts` | Clone a chosen same-vacancy `source_version_id`, or latest retained configuration; blank setup if none. |
+| `PUT /staff/vacancies/{id}/versions/{version_id}` | Save role details using current `revision`, independently of scorecards. Changed context retires draft scorecard contents. |
+| `POST /staff/vacancies/{id}/versions/{version_id}/approve` | Assigned HR validates and approves using current `revision`. |
+| `DELETE /staff/vacancies/{id}/versions/{version_id}` | Discard a draft using a JSON body containing current `revision`. |
+| `POST /staff/vacancies/{id}/archive` | Operational archive, preserving scoped read access to history. |
+
+### Setup and verification
+
+Use the existing shared root `.env`; no new environment variables or packages are required.
+Start PostgreSQL with `docker compose up -d --wait postgres`, then from `backend/`:
+
+```bash
+uv sync --locked
+uv run --locked alembic upgrade head
+uv run --locked uvicorn app.main:app --reload --port 8012 --no-proxy-headers
+```
+
+From `frontend/`, run `npm run dev` (port 3012). An administrator must assign HR to a
+manager-created vacancy before that HR can approve. Existing unassigned legacy vacancies
+also need an explicit assignment. Forward migrations retain existing data; this migration
+intentionally refuses destructive downgrade. Production migration/deployment is not performed.
+
+For checks, configure **a new, empty, separate PostgreSQL test database**, then run:
+
+```bash
+cd backend
+TEST_DATABASE_URL='postgresql+psycopg://USER:PASSWORD@localhost:PORT/EMPTY_TEST_DB' uv run --locked pytest
+cd ../frontend
+npm run lint
+npm run build
+```
+
+Without `TEST_DATABASE_URL`, PostgreSQL migration/concurrency/trigger checks are skipped.
+The PostgreSQL test fixture refuses a non-empty database. See `postman/README.md` for the
+**Vacancies** folder, which includes the manual setup APIs and skips writes by default.
+
+**Still planned:** candidate submission/clarification forms, resume extraction, screening,
+AI vacancy generation, project RAG, salary research and separate DISC interpretation. Candidate
+interaction remains limited to Resume Submission, DISC Result Upload and Clarification Response.
+JobStreet integration, candidate job browsing/tracking, scheduling and invitations remain excluded.
 
 ## Technology stack and implementation status
 
 | Layer | Technology | Purpose in WeHire | Status |
 | --- | --- | --- | --- |
-| Frontend | Next.js App Router, React, TypeScript | Three candidate input forms, HR dashboard and hiring-manager workspace. | Candidate sign-up/account confirmation, staff sign-in/out, protected admin/staff workspaces and setup implemented; input forms and processing planned. |
-| Styling | Tailwind CSS | Separate candidate and HR themes and responsive components. | Installed; product screens planned. |
-| API | Python 3.12+, FastAPI, Uvicorn | Authenticated endpoints, uploads, workflow requests and result retrieval. | Health, authentication and permission-demonstration endpoints implemented. |
+| Frontend | Next.js App Router, React, TypeScript | Three candidate input forms, HR dashboard and hiring-manager workspace. | Candidate sign-up/account confirmation, staff sign-in/out, protected admin/staff workspaces and setup implemented; role-brief workspace and read-only scorecard review implemented; generation planned; candidate input forms and processing planned. |
+| Styling | Tailwind CSS | Separate candidate and HR themes and responsive components. | Installed; redesigned identity/admin pages and manual vacancy workspace implemented. |
+| API | Python 3.12+, FastAPI, Uvicorn | Authenticated endpoints, uploads, workflow requests and result retrieval. | Health, authentication, admin/access and scoped vacancy/version/approval endpoints implemented. |
 | Configuration | pydantic-settings | Backend environment configuration and validation. | Implemented for shared root configuration, database and authentication settings. |
-| Request and result validation | Pydantic | Typed API schemas and structured agent results. | Available through FastAPI; recruitment schemas planned. |
-| Main database | PostgreSQL | Relational records, versions, permissions, processing jobs and audit events. | Identity, sessions and minimal access records implemented; full recruitment tables planned. |
+| Request and result validation | Pydantic | Typed API schemas and structured agent results. | Dedicated manual vacancy/scorecard input schemas implemented; processing-result schemas planned. |
+| Main database | PostgreSQL | Relational records, versions, permissions, processing jobs and audit events. | Identity, sessions, access records and manual vacancy/scorecard version tables implemented; screening tables planned. |
 | Original file storage | PostgreSQL `BYTEA` | Store actual PDF, DOCX, PNG and JPG bytes in a separate content table. | Selected; integration planned. |
 | Flexible structured fields | PostgreSQL `JSONB` | Versioned extraction details, warnings and agent result payloads. | Planned; IDs, relationships and core scores remain typed columns/tables. |
 | Database access | SQLAlchemy with Psycopg 3 | Database models, transactions, connection pooling and PostgreSQL access. | Implemented; sessions require explicit commit. |
-| Schema migrations | Alembic | Reproducible changes to tables, constraints, indexes and extensions. | Baseline and explicit identity/access migration implemented. |
+| Schema migrations | Alembic | Reproducible changes to tables, constraints, indexes and extensions. | Baseline, identity/admin and forward vacancy/scorecard migrations implemented. |
 | Project RAG | pgvector extension and Python integration | Similarity search over permission-scoped project passages. | Proposed; extension and Python dependency not installed. |
 | Agent orchestration | LangGraph | Stateful nodes, conditional routing, parallel checks and human review pauses. | Proposed; not installed. |
 | Model and tool integrations | Provider SDKs; optional LangChain integrations | Structured model calls, embeddings and approved external research tools. | Providers and models to select; not configured. |
@@ -58,7 +176,7 @@ libraries remain planned.
 | Image and scanned-document processing | Pillow plus an OCR engine or vision-capable model | Validate images and read scanned resumes or DISC screenshots. | Proposed; OCR/vision provider to select and evaluate. |
 | Authentication | WeHire-managed accounts, hashlib SHA-256, opaque cookie sessions | Password verification, session expiry/revocation and record permissions. | Implemented, including administrator-managed passwords; self-service recovery and MFA planned. |
 | Background processing | Python worker with persistent PostgreSQL job records | File extraction, embeddings, research and screening outside upload requests. | Proposed; queue implementation planned. |
-| Testing | pytest, HTTPX, FastAPI TestClient | API checks and future ownership, scoring and workflow tests. | Health, authentication, permissions, administration, setup and PostgreSQL checks implemented; recruitment-processing tests planned. |
+| Testing | pytest, HTTPX, FastAPI TestClient | API checks and future ownership, scoring and workflow tests. | Health, authentication, permissions, administration, setup, manual scorecards, immutability and PostgreSQL checks implemented; recruitment-processing tests planned. |
 | Frontend checks | ESLint, TypeScript and Next.js build | Linting, type validation and production build checks. | Configured in scaffold. |
 | Local database environment | Docker Compose, PostgreSQL 17 | Local-only database service, readiness check and persistent named volume. | Configured; frontend and backend still run on the host. |
 | Backend dependency management | uv, pyproject.toml and uv.lock | Runtime/dev dependency declarations, locked resolution and local environments. | Migrated from pip requirements; dev tools are grouped separately. |
@@ -143,10 +261,11 @@ configuration, not publishing a public WeHire job listing.
 ```mermaid
 flowchart TD
     A[Hiring manager defines project, role and seniority] --> B{Choose vacancy setup}
-    B -->|Manual| B0[Enter JD, requirements, compensation and scorecard]
+    B -->|Manual role brief| B0[Enter role details and save independently]
+    B0 --> B2[AI proposes scorecard for HR review]
     B -->|AI assisted| A1[Retrieve authorised project context and research market salary]
     A1 --> B1[Generate editable level specific vacancy draft]
-    B0 --> C[HR and manager approve JD, requirements, salary and scorecard]
+    B2 --> C[HR reviews and approves the completed configuration]
     B1 --> C
     C --> D[Activate internal vacancy and screening configuration]
     D --> E[Candidate submits resume through a scoped input page]
@@ -191,9 +310,10 @@ onboarding are outside this scope.
 
 Follow these steps as the development checklist for the designed system. They
 describe the target delivery sequence. The scaffold and PostgreSQL connection,
-session and migration foundation are implemented; recruitment features remain
-planned. Step 2's domain tables, processing jobs and audit services are not yet
-implemented. Each step identifies its
+session and migration foundation, identity/access, and manual vacancy/scorecard setup are implemented.
+The numbered sections here describe the broader product workflow; delivery Step 4
+(manual setup) is documented below. Project, upload, processing-job and audit services
+remain planned. Each step identifies its
 tech stack, work, responsible component, saved output and completion check.
 Technologies named in these steps are planned unless the stack table above marks
 them as installed. No additional dependencies are installed by this document.
@@ -439,7 +559,7 @@ built, and verify them throughout rather than waiting until the final step.
 
 - [ ] HR can approve and activate a manual or project-grounded AI vacancy for internal screening.
 - [ ] Salary research is sourced, level-specific and approved before internal vacancy activation.
-- [ ] Each vacancy has approved eligibility rules, criteria, weights and rating anchors.
+- [ ] AI generates scorecards from role briefs for HR review and approval. Storage, validation and immutable approval foundations are implemented; generation remains planned.
 - [ ] Candidates can submit resumes and answer HR-approved clarification requests through scoped input pages.
 - [ ] HR can review evidence, rankings and explanations and save a screening outcome.
 - [ ] Candidates can upload DISC screenshots as separate optional application records.
@@ -447,7 +567,7 @@ built, and verify them throughout rather than waiting until the final step.
 - [ ] The three candidate input pages and HR assistant respect record permissions and result visibility.
 - [ ] Audit history, failure recovery and access-isolation checks cover the complete flow.
 
-These boxes remain unchecked until the corresponding feature is implemented and
+Unchecked boxes remain planned until the corresponding feature is implemented and
 verified; they do not indicate scaffold completion.
 
 ## Design documents
@@ -680,11 +800,13 @@ backend/
   alembic.ini         # No database credentials stored here
   app/
     db/               # Shared model base and lazy engine/session helpers
-    models/           # Identity, sessions and minimal access models
+    models/           # Identity/access and versioned manual vacancy models
     api/routes/       # Health, authentication and minimal access APIs
     core/             # Shared settings, identity and permission dependencies
     main.py           # FastAPI application
-    services/         # Shared account/role business rules
+    schemas/          # Strict vacancy/scorecard API input contracts
+    crud/             # Domain persistence operations (vacancies)
+    services/         # Identity rules and manual vacancy lifecycle/approval
   tests/              # Backend tests
   pyproject.toml      # Runtime/dev dependencies and tool settings
   uv.lock             # Resolved dependency versions
@@ -714,8 +836,8 @@ README.md             # Product direction and local development guide
 | API documentation | <http://localhost:8012/docs> |
 | Health check | <http://localhost:8012/health> |
 
-No LLM credentials or database is needed to run the current
-scaffold.
+No LLM credentials are needed. The public health endpoint works without a database;
+authentication, administration and vacancy setup require migrated PostgreSQL.
 
 ## Run the backend
 
@@ -991,7 +1113,7 @@ The protected administration console provides:
 | Screen | Available actions |
 | --- | --- |
 | Team & accounts | Create accounts, grant/revoke roles, enable/disable users, set passwords, explicitly grant/remove administrator access and archive accounts. |
-| Vacancies | Create/edit minimal vacancy titles and archive vacancy records. Full JD posting remains future work. |
+| Vacancies | Create title-only drafts with automatic creator assignment; assigned staff use the recruitment studio for full JD/scorecard setup. Admin title changes follow versioning; they do not overwrite approved snapshots. |
 | Staff assignments | Search staff/vacancies, assign staff and remove assigned access. |
 | Applications | Search candidate/vacancy records, link a candidate to a vacancy and archive an application. Actual submission forms and processing remain future work. |
 
@@ -1125,7 +1247,7 @@ conversion migration; do not reset it or blindly reuse this revised revision.
 | `PATCH /admin/users/{id}/status`, `PUT /admin/users/{id}/password` | Enable/disable accounts or set a password; disabling/password changes revoke sessions. |
 | `POST /admin/users/{id}/roles`, `DELETE /admin/users/{id}/roles/{role}` | Explicit role grant/revocation, including safe restoration of an archived role link. |
 | `DELETE /admin/users/{id}` | Soft-delete account and related access. |
-| `GET/POST /admin/vacancies`, `PATCH/DELETE /admin/vacancies/{id}` | Minimal vacancy records and soft deletion. |
+| `GET/POST /admin/vacancies`, `PATCH/DELETE /admin/vacancies/{id}` | Admin metadata list/create; creation assigns the creator. Title edits and soft deletion require assignment. Title edits create/reuse drafts and preserve approved snapshots. |
 | `GET/POST /admin/assignments`, `DELETE /admin/assignments/{id}` | Staff-vacancy assignment management. |
 | `GET/POST /admin/applications`, `DELETE /admin/applications/{id}` | Candidate-vacancy ownership records and soft deletion. |
 

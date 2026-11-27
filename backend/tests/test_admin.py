@@ -115,6 +115,7 @@ def test_password_change_and_disable_revoke_existing_sessions(administrator):
 
 def test_metadata_crud_and_soft_deletion(administrator):
     h = administrator
+    archived_before = h.client.get("/admin/vacancies?include_archived=true").json()["total"] - h.client.get("/admin/vacancies").json()["total"]
     vacancy = h.client.post("/admin/vacancies", headers=h.headers, json={"title":"Admin-created vacancy"}).json()
     identifier = vacancy["id"]
     assert h.client.patch(f"/admin/vacancies/{identifier}", headers=h.headers, json={"title":"Updated vacancy"}).status_code == 200
@@ -132,17 +133,18 @@ def test_metadata_crud_and_soft_deletion(administrator):
     archived = h.client.get("/admin/vacancies?include_archived=true").json()
     assert identifier not in [item["id"] for item in active["items"]]
     assert identifier in [item["id"] for item in archived["items"]]
-    assert archived["total"] == active["total"] + 1
+    assert archived["total"] == active["total"] + archived_before + 1
 
 
 def test_user_deletion_retains_rows_and_reserved_email(administrator):
     h = administrator
+    total_before = h.client.get("/admin/users?include_archived=true").json()["total"]
     identifier = h.users["bob"].id
     assert h.client.delete(f"/admin/users/{identifier}", headers=h.headers).status_code == 204
     assert h.db.scalar(select(User).where(User.id==identifier)) is None
     assert h.db.scalar(select(User).where(User.id==identifier).execution_options(include_deleted=True)).deleted_at is not None
     assert h.client.post("/admin/users", headers=h.headers, json={"email":"bob@example.com","password":PASSWORD,"role":"candidate"}).status_code == 409
-    assert h.client.get("/admin/users?include_archived=true").json()["total"] == 4
+    assert h.client.get("/admin/users?include_archived=true").json()["total"] == total_before
 
 
 def test_user_search_pagination_and_role_controls(administrator):

@@ -34,6 +34,7 @@ async function StaffWorkspace() {
 
   const nav = [
     { href: "/staff", label: "Workspace", icon: <LayoutDashboard />, current: true },
+    { href: "/staff/vacancies", label: "Vacancies", icon: <BriefcaseBusiness /> },
     ...(user.is_admin ? [{ href: "/admin", label: "Administration", icon: <ShieldCheck /> }] : []),
   ];
   const stats = [
@@ -63,13 +64,13 @@ async function StaffWorkspace() {
       <Stagger as="section" aria-labelledby="assigned-heading" className={cn(cardClass, "mt-6 overflow-hidden")} delay={0.35}>
         <Item className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
           <div><h2 id="assigned-heading" className="text-base font-semibold">Assigned vacancies</h2><p className="mt-0.5 text-sm text-slate-500">Vacancies your administrator has given you access to.</p></div>
-          <Badge tone="neutral" className="tabular-nums">{vacancies.length}</Badge>
+          <Link href="/staff/vacancies" className={buttonClass({ variant: "soft", size: "sm" })}>Manage vacancies</Link>
         </Item>
         {vacancies.length ? <Stagger as="ul" className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3" delay={0.45} gap={0.05}>
           {vacancies.map(v => <Item as="li" key={v.id} className="group rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 transition hover:border-brand-200 hover:bg-white hover:shadow-card">
             <div className="flex items-start gap-3">
               <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-brand-600 shadow-sm ring-1 ring-slate-200/80 transition group-hover:ring-brand-200"><BriefcaseBusiness className="size-[18px]" /></span>
-              <div className="min-w-0"><p className="break-words font-medium leading-6 text-slate-900">{v.title}</p><p className="mt-0.5 font-mono text-xs text-slate-400">#{v.id}</p></div>
+              <div className="min-w-0"><Link href={`/staff/vacancies?id=${v.id}`} className="break-words font-medium leading-6 text-slate-900 hover:text-brand-600 hover:underline">{v.title}</Link><p className="mt-0.5 font-mono text-xs text-slate-400">#{v.id}</p></div>
             </div>
             <div className="mt-4"><Badge tone="success" dot>Assigned access</Badge></div>
           </Item>)}

@@ -2,7 +2,7 @@
   "info": {
     "name": "WeHire API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Current implemented WeHire APIs, including one-time setup and administrator management. Setup/Admin writes are skipped unless explicitly enabled; send writes individually after reviewing targets. Import this file; configure private credentials and real numeric application IDs, then run folders in order. Postman cookie jar handles opaque sessions. Logout fetches CSRF automatically without saving tokens into collection variables. Health is public; access endpoints are permission checks, not uploads or recruitment processing. Do not run repeated login loops: account/IP throttling is active. See postman/README.md. Candidate signup is in Registration, skipped unless allow_registration=true. Staff signup is administrator-only."
+    "description": "Current implemented WeHire APIs, including one-time setup and administrator management. Setup/Admin writes are skipped unless explicitly enabled; send writes individually after reviewing targets. Import this file; configure private credentials and real numeric application IDs, then run folders in order. Postman cookie jar handles opaque sessions. Logout fetches CSRF automatically without saving tokens into collection variables. Health is public; access endpoints are permission checks, not uploads or recruitment processing. Do not run repeated login loops: account/IP throttling is active. See postman/README.md. Candidate signup is in Registration, skipped unless allow_registration=true. Staff signup is administrator-only. Manual vacancy/version/scorecard APIs are in Vacancies. Writes are opt-in and approval requires assigned HR. No AI screening is implemented."
   },
   "auth": {
     "type": "noauth"
@@ -144,7 +144,31 @@
       "key": "registration_password",
       "value": "",
       "type": "string",
-      "description": "Original candidate password, 6–128 characters; set privately and never export it."
+      "description": "Original candidate password, 6\u2013128 characters; set privately and never export it."
+    },
+    {
+      "key": "allow_vacancy_changes",
+      "value": "false",
+      "type": "string",
+      "description": "Enable reviewed vacancy writes. Prefer individual requests; do not run writes against unintended data."
+    },
+    {
+      "key": "vacancy_id",
+      "value": "",
+      "type": "string",
+      "description": "Assigned internal vacancy ID. Set by successful Create."
+    },
+    {
+      "key": "version_id",
+      "value": "",
+      "type": "string",
+      "description": "Configuration ID, not the version number. Set from successful write responses."
+    },
+    {
+      "key": "draft_revision",
+      "value": "1",
+      "type": "string",
+      "description": "Current optimistic-lock revision; refreshed from successful write responses."
     }
   ],
   "item": [
@@ -2580,6 +2604,580 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Vacancies",
+      "description": "Role-brief-only vacancy APIs. Staff Login uses staff_email/password. Writes are skipped unless allow_vacancy_changes=true. No manual scorecard writes or AI generation. The opted-in flow creates/saves a brief, verifies approval is blocked without a scorecard, discards/recreates a draft and archives the record. Use a test database.",
+      "item": [
+        {
+          "name": "Staff Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/login",
+            "description": "Use an existing administrator-provisioned staff account. The pre-request script safely JSON-escapes credentials. Postman stores wehire_session in its cookie jar; no bearer token is used.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{staff_email}}\",\n  \"password\": \"{{staff_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!String(pm.variables.get(\"staff_email\") ?? \"\").trim()) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set staff_email in collection/environment variables before sending this request.\");",
+                  "}",
+                  "if (!String(pm.variables.get(\"staff_password\") ?? \"\").trim()) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set staff_password in collection/environment variables before sending this request.\");",
+                  "}",
+                  "",
+                  "pm.request.body.update(JSON.stringify({",
+                  "  email: pm.variables.get(\"staff_email\"),",
+                  "  password: pm.variables.get(\"staff_password\")",
+                  "}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.test(\"Numeric identity and expected role\", function () {",
+                  "    pm.expect(data.id).to.be.a(\"number\");",
+                  "    pm.expect(data.id).to.be.above(0);",
+                  "    pm.expect(data.roles.some(role => [\"hr\", \"hiring_manager\"].includes(role))).to.eql(true);",
+                  "  });",
+                  "  pm.test(\"HttpOnly session cookie issued\", function () {",
+                  "    const cookie = pm.response.headers.get(\"Set-Cookie\") || \"\";",
+                  "    pm.expect(cookie).to.include(\"wehire_session=\");",
+                  "    pm.expect(cookie.toLowerCase()).to.include(\"httponly\");",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/staff/vacancies?limit=25&offset=0",
+            "description": "Assigned staff only; approval requires assigned HR. Review target IDs and current revision. Writes require allow_vacancy_changes=true. No screening is executed."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/staff/vacancies",
+            "description": "Role fields only: title, jd, responsibilities, seniority, location, employment_type. Save Brief also needs revision. Scorecard fields are rejected. Scorecard generation is planned.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Backend Engineer\",\n  \"jd\": \"Build reliable internal APIs.\",\n  \"responsibilities\": \"Own API design and delivery.\",\n  \"seniority\": \"senior\",\n  \"location\": \"Kuala Lumpur\",\n  \"employment_type\": \"full_time\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_vacancy_changes\")) !== \"true\") { pm.execution.skipRequest(); return; }",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({url: target + \"/auth/csrf\", method: \"GET\"}, function(error, response) {",
+                  "  if (error || !response || response.code !== 200) { pm.execution.skipRequest(); throw new Error(\"Sign in first; CSRF unavailable.\"); }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) { pm.execution.skipRequest(); throw new Error(\"Unexpected CSRF response.\"); }",
+                  "  pm.request.headers.upsert({key:\"X-CSRF-Token\", value:token});",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function save(key, value) { pm.collectionVariables.set(key, value); if (pm.environment.has(key)) pm.environment.set(key, value); }",
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  save(\"vacancy_id\", data.id);",
+                  "  const version = (data.versions || []).find(v => v.id === data.draft_id) || (data.versions || [])[0];",
+                  "  if (version) { save(\"version_id\", version.id); save(\"draft_revision\", version.revision); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/staff/vacancies/{{vacancy_id}}",
+            "description": "Assigned staff only; approval requires assigned HR. Review target IDs and current revision. Writes require allow_vacancy_changes=true. No screening is executed."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!/^[1-9]\\d*$/.test(String(pm.variables.get(\"vacancy_id\")))) { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save Brief",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/staff/vacancies/{{vacancy_id}}/versions/{{version_id}}",
+            "description": "Role fields only: title, jd, responsibilities, seniority, location, employment_type. Save Brief also needs revision. Scorecard fields are rejected. Scorecard generation is planned.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Backend Engineer\",\n  \"jd\": \"Build reliable internal APIs.\",\n  \"responsibilities\": \"Own API design and delivery.\",\n  \"seniority\": \"senior\",\n  \"location\": \"Kuala Lumpur\",\n  \"employment_type\": \"full_time\",\n  \"revision\": {{draft_revision}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_vacancy_changes\")) !== \"true\") { pm.execution.skipRequest(); return; }",
+                  "if (!/^[1-9]\\d*$/.test(String(pm.variables.get(\"vacancy_id\")))) { pm.execution.skipRequest(); return; }",
+                  "if (!/^[1-9]\\d*$/.test(String(pm.variables.get(\"version_id\")))) { pm.execution.skipRequest(); return; }",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({url: target + \"/auth/csrf\", method: \"GET\"}, function(error, response) {",
+                  "  if (error || !response || response.code !== 200) { pm.execution.skipRequest(); throw new Error(\"Sign in first; CSRF unavailable.\"); }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) { pm.execution.skipRequest(); throw new Error(\"Unexpected CSRF response.\"); }",
+                  "  pm.request.headers.upsert({key:\"X-CSRF-Token\", value:token});",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function save(key, value) { pm.collectionVariables.set(key, value); if (pm.environment.has(key)) pm.environment.set(key, value); }",
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  save(\"vacancy_id\", data.id);",
+                  "  const version = (data.versions || []).find(v => v.id === data.draft_id) || (data.versions || [])[0];",
+                  "  if (version) { save(\"version_id\", version.id); save(\"draft_revision\", version.revision); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approval Pending",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/staff/vacancies/{{vacancy_id}}/versions/{{version_id}}/approve",
+            "description": "With an assigned HR session, a role-only draft returns 422 because the scorecard is not generated. This does not approve or activate the draft. Future valid generated scorecards can use this endpoint for HR approval.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"revision\": {{draft_revision}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_vacancy_changes\")) !== \"true\") { pm.execution.skipRequest(); return; }",
+                  "if (!/^[1-9]\\d*$/.test(String(pm.variables.get(\"vacancy_id\")))) { pm.execution.skipRequest(); return; }",
+                  "if (!/^[1-9]\\d*$/.test(String(pm.variables.get(\"version_id\")))) { pm.execution.skipRequest(); return; }",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({url: target + \"/auth/csrf\", method: \"GET\"}, function(error, response) {",
+                  "  if (error || !response || response.code !== 200) { pm.execution.skipRequest(); throw new Error(\"Sign in first; CSRF unavailable.\"); }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) { pm.execution.skipRequest(); throw new Error(\"Unexpected CSRF response.\"); }",
+                  "  pm.request.headers.upsert({key:\"X-CSRF-Token\", value:token});",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Role-only approval blocked (422)\", function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Discard Draft",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/staff/vacancies/{{vacancy_id}}/versions/{{version_id}}",
+            "description": "Assigned staff only; approval requires assigned HR. Review target IDs and current revision. Writes require allow_vacancy_changes=true. No screening is executed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"revision\": {{draft_revision}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_vacancy_changes\")) !== \"true\") { pm.execution.skipRequest(); return; }",
+                  "if (!/^[1-9]\\d*$/.test(String(pm.variables.get(\"vacancy_id\")))) { pm.execution.skipRequest(); return; }",
+                  "if (!/^[1-9]\\d*$/.test(String(pm.variables.get(\"version_id\")))) { pm.execution.skipRequest(); return; }",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({url: target + \"/auth/csrf\", method: \"GET\"}, function(error, response) {",
+                  "  if (error || !response || response.code !== 200) { pm.execution.skipRequest(); throw new Error(\"Sign in first; CSRF unavailable.\"); }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) { pm.execution.skipRequest(); throw new Error(\"Unexpected CSRF response.\"); }",
+                  "  pm.request.headers.upsert({key:\"X-CSRF-Token\", value:token});",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function save(key, value) { pm.collectionVariables.set(key, value); if (pm.environment.has(key)) pm.environment.set(key, value); }",
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  save(\"vacancy_id\", data.id);",
+                  "  const version = (data.versions || []).find(v => v.id === data.draft_id) || (data.versions || [])[0];",
+                  "  if (version) { save(\"version_id\", version.id); save(\"draft_revision\", version.revision); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "New Draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/staff/vacancies/{{vacancy_id}}/drafts",
+            "description": "Assigned staff only; approval requires assigned HR. Review target IDs and current revision. Writes require allow_vacancy_changes=true. No screening is executed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_vacancy_changes\")) !== \"true\") { pm.execution.skipRequest(); return; }",
+                  "if (!/^[1-9]\\d*$/.test(String(pm.variables.get(\"vacancy_id\")))) { pm.execution.skipRequest(); return; }",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({url: target + \"/auth/csrf\", method: \"GET\"}, function(error, response) {",
+                  "  if (error || !response || response.code !== 200) { pm.execution.skipRequest(); throw new Error(\"Sign in first; CSRF unavailable.\"); }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) { pm.execution.skipRequest(); throw new Error(\"Unexpected CSRF response.\"); }",
+                  "  pm.request.headers.upsert({key:\"X-CSRF-Token\", value:token});",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function save(key, value) { pm.collectionVariables.set(key, value); if (pm.environment.has(key)) pm.environment.set(key, value); }",
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  save(\"vacancy_id\", data.id);",
+                  "  const version = (data.versions || []).find(v => v.id === data.draft_id) || (data.versions || [])[0];",
+                  "  if (version) { save(\"version_id\", version.id); save(\"draft_revision\", version.revision); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Archive",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/staff/vacancies/{{vacancy_id}}/archive",
+            "description": "Assigned staff only; approval requires assigned HR. Review target IDs and current revision. Writes require allow_vacancy_changes=true. No screening is executed."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_vacancy_changes\")) !== \"true\") { pm.execution.skipRequest(); return; }",
+                  "if (!/^[1-9]\\d*$/.test(String(pm.variables.get(\"vacancy_id\")))) { pm.execution.skipRequest(); return; }",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({url: target + \"/auth/csrf\", method: \"GET\"}, function(error, response) {",
+                  "  if (error || !response || response.code !== 200) { pm.execution.skipRequest(); throw new Error(\"Sign in first; CSRF unavailable.\"); }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) { pm.execution.skipRequest(); throw new Error(\"Unexpected CSRF response.\"); }",
+                  "  pm.request.headers.upsert({key:\"X-CSRF-Token\", value:token});",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function save(key, value) { pm.collectionVariables.set(key, value); if (pm.environment.has(key)) pm.environment.set(key, value); }",
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  save(\"vacancy_id\", data.id);",
+                  "  const version = (data.versions || []).find(v => v.id === data.draft_id) || (data.versions || [])[0];",
+                  "  if (version) { save(\"version_id\", version.id); save(\"draft_revision\", version.revision); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/logout",
+            "description": "Fetches /auth/csrf using the Postman session cookie, injects X-CSRF-Token, then revokes the session. Keep the cookie jar enabled."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });",
+                  "pm.test(\"Logout has no response body\", function () { pm.expect(pm.response.text()).to.eql(\"\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logged Out (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/me",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Private response is not cached\", function () { pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
                 ]
               }
             }

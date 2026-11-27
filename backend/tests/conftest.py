@@ -31,7 +31,22 @@ def postgres_engine():
             # Verify the forward admin migration preserves an existing identity row.
             with engine.begin() as connection:
                 probe_id = connection.scalar(text("INSERT INTO login_rate_limits (bucket_hash, attempts, expires_at) VALUES ('migration-preservation-probe', 1, '2099-01-01 00:00:00+00') RETURNING id"))
+            with engine.begin() as connection:
+                legacy_user = connection.scalar(text("INSERT INTO users (email, password_hash) VALUES ('migration-probe@example.com', 'unused-test-only') RETURNING id"))
+                legacy_vacancy = connection.scalar(text("INSERT INTO vacancies (title) VALUES ('Retained legacy vacancy') RETURNING id"))
+                legacy_assignment = connection.scalar(text("INSERT INTO vacancy_assignments (user_id, vacancy_id) VALUES (:user, :vacancy) RETURNING id"), {"user": legacy_user, "vacancy": legacy_vacancy})
+                legacy_application = connection.scalar(text("INSERT INTO applications (candidate_user_id, vacancy_id) VALUES (:user, :vacancy) RETURNING id"), {"user": legacy_user, "vacancy": legacy_vacancy})
             command.upgrade(config, "head")
+            with engine.begin() as connection:
+                assert connection.scalar(text("SELECT title FROM vacancies WHERE id=:id"), {"id": legacy_vacancy}) == "Retained legacy vacancy"
+                assert connection.scalar(text("SELECT version FROM vacancy_configurations WHERE vacancy_id=:id"), {"id": legacy_vacancy}) == 1
+                assert connection.scalar(text("SELECT id FROM vacancy_assignments WHERE user_id=:user AND vacancy_id=:vacancy"), {"user": legacy_user, "vacancy": legacy_vacancy}) == legacy_assignment
+                assert connection.scalar(text("SELECT id FROM applications WHERE candidate_user_id=:user AND vacancy_id=:vacancy"), {"user": legacy_user, "vacancy": legacy_vacancy}) == legacy_application
+                # Retain migration probes as archived rows, invisible to normal fixture queries.
+                for table, key, value in [("users", "id", legacy_user), ("vacancies", "id", legacy_vacancy),
+                    ("vacancy_assignments", "id", legacy_assignment), ("applications", "id", legacy_application),
+                    ("vacancy_configurations", "vacancy_id", legacy_vacancy)]:
+                    connection.execute(text(f"UPDATE {table} SET deleted_at=now() WHERE {key}=:id"), {"id": value})
             with engine.connect() as connection:
                 assert connection.scalar(text("SELECT id FROM login_rate_limits WHERE bucket_hash='migration-preservation-probe'")) == probe_id
             command.upgrade(config, "head")

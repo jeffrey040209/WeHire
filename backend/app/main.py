@@ -11,6 +11,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.access import router as access_router
 from app.api.routes.admin import router as admin_router
+from app.api.routes.vacancies import router as vacancies_router
 from app.api.routes.setup import router as setup_router
 from app.core.config import get_settings
 from app.db.session import dispose_engine
@@ -39,11 +40,12 @@ app.include_router(auth_router)
 app.include_router(access_router)
 app.include_router(setup_router)
 app.include_router(admin_router)
+app.include_router(vacancies_router)
 
 
 @app.exception_handler(RequestValidationError)
 async def safe_validation_error(request: Request, exc: RequestValidationError):
-    if request.url.path.startswith(("/auth/", "/admin/", "/setup/")):
+    if request.url.path.startswith(("/auth/", "/admin/", "/setup/", "/staff/vacancies")):
         return JSONResponse({"detail": "Invalid request data"}, status_code=422)
     return await request_validation_exception_handler(request, exc)
 

@@ -104,3 +104,24 @@ Registration has separate email/IP limits (default 3 per email and 10 per IP per
 hour). Wait for Retry-After on 429 rather than resetting counters. Email syntax
 validation is implemented; email verification is planned and no email is sent.
 Reset `allow_registration=false` when done, and never export populated passwords.
+
+
+## Role briefs and scorecard review (revised Step 4)
+
+The **Vacancies** folder covers list, create, detail/review, **Save Brief**, approval,
+draft discard/recreation and archive. It signs in using `staff_email`/`staff_password`.
+
+- Public create/update bodies contain role details only. Update also needs `revision`.
+  `criteria`, `mandatory_rules`, policies, owners and approval fields are rejected.
+- No scorecard entry is required to save a brief. AI generation is planned and has no endpoint yet.
+- Detail returns `role_brief_errors`, `scorecard_errors`, `scorecard_state` and
+  `scorecard_generation_available=false`. Saving is independent of final approval readiness.
+- **Approval Pending** expects 422 for a newly created role-only draft with an assigned HR session.
+  Existing complete saved scorecards still support HR approval; managers cannot approve.
+- Changed role details soft-delete only the draft scorecard's items; approved versions stay unchanged.
+- Set `allow_vacancy_changes=true` only for reviewed development/test writes. Writes fetch CSRF automatically.
+- `vacancy_id` is the stable vacancy ID; `version_id` is the configuration row ID.
+  Successful writes refresh them and `draft_revision`. Stale revisions return 409.
+- A full opted-in run creates/saves a brief, confirms approval is blocked, discards/recreates its
+  draft, then archives it. Default runs skip writes; review IDs before sending individual requests.
+- No API in this folder generates AI content, runs screening or affects DISC scores.

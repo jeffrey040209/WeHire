@@ -30,7 +30,7 @@ const sections: Section[] = ["users", "vacancies", "assignments", "applications"
 const labels: Record<Section, string> = { users: "Team & accounts", vacancies: "Vacancies", assignments: "Staff assignments", applications: "Applications" };
 const descriptions: Record<Section, string> = {
   users: "Create accounts and control roles, administrator access and account status.",
-  vacancies: "Create the vacancy records used to organise access. Full job descriptions come later.",
+  vacancies: "Create access records here. Use the vacancy studio for full job descriptions, scorecards and assigned-HR approval.",
   assignments: "Choose which vacancies each staff member can access.",
   applications: "Link a candidate to a vacancy. Resume and DISC uploads come in later steps.",
 };
@@ -300,7 +300,7 @@ export function AdminConsole({ user }: { user: Identity }) {
               <p className="mt-2 text-sm leading-6 text-slate-500">{descriptions[section]}</p>
             </motion.div>
           </AnimatePresence>
-          <button disabled={busy} onClick={() => setForm({ mode: createMode[section] })} className={buttonClass({ size: "lg", className: "w-full sm:w-auto" })}><Plus aria-hidden />{createLabel[section]}</button>
+          <div className="flex flex-wrap gap-2">{section === "vacancies" && <Link href="/staff/vacancies" className={buttonClass({ variant: "secondary", size: "lg" })}><BriefcaseBusiness aria-hidden />Vacancy studio</Link>}<button disabled={busy} onClick={() => setForm({ mode: createMode[section] })} className={buttonClass({ size: "lg", className: "w-full sm:w-auto" })}><Plus aria-hidden />{createLabel[section]}</button></div>
         </div>
 
         <ul aria-label="Record counts" className="mt-8 grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -345,7 +345,7 @@ export function AdminConsole({ user }: { user: Identity }) {
             <p className="mt-2 text-sm text-slate-500">Create a record or adjust your filters.</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               {filtered && <button disabled={busy} onClick={() => { setQuery(""); setArchived(false); setPage(0); }} className={buttonClass({ variant: "secondary" })}><X aria-hidden />Clear filters</button>}
-              <button disabled={busy} onClick={() => setForm({ mode: createMode[section] })} className={buttonClass({ variant: "soft" })}><Plus aria-hidden />{createLabel[section]}</button>
+              <div className="flex flex-wrap gap-2">{section === "vacancies" && <Link href="/staff/vacancies" className={buttonClass({ variant: "secondary", size: "lg" })}><BriefcaseBusiness aria-hidden />Vacancy studio</Link>}<button disabled={busy} onClick={() => setForm({ mode: createMode[section] })} className={buttonClass({ variant: "soft" })}><Plus aria-hidden />{createLabel[section]}</button></div>
             </div>
           </motion.div> : <motion.div key={`${section}-${page}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className={cn("transition-opacity", loading && "opacity-60")}>
             {/* Desktop table */}

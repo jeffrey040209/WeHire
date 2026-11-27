@@ -2,7 +2,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Identity, Integer, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, SoftDeleteMixin
 
@@ -45,6 +45,19 @@ class Vacancy(SoftDeleteMixin, Base):
     __tablename__ = "vacancies"
     id: Mapped[int] = mapped_column(Integer, Identity(start=1), primary_key=True)
     title: Mapped[str] = mapped_column(String(200))
+    lifecycle: Mapped["VacancyLifecycle | None"] = relationship("VacancyLifecycle", uselist=False, lazy="selectin")
+
+    @property
+    def status(self) -> str:
+        return self.lifecycle.status if self.lifecycle is not None else "draft"
+
+    @status.setter
+    def status(self, value: str) -> None:
+        from app.models.vacancy import VacancyLifecycle
+        if self.lifecycle is None:
+            self.lifecycle = VacancyLifecycle(status=value)
+        else:
+            self.lifecycle.status = value
 
 
 class VacancyAssignment(SoftDeleteMixin, Base):

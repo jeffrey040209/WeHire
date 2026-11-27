@@ -1,0 +1,2591 @@
+{
+  "info": {
+    "name": "WeHire API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Current implemented WeHire APIs, including one-time setup and administrator management. Setup/Admin writes are skipped unless explicitly enabled; send writes individually after reviewing targets. Import this file; configure private credentials and real numeric application IDs, then run folders in order. Postman cookie jar handles opaque sessions. Logout fetches CSRF automatically without saving tokens into collection variables. Health is public; access endpoints are permission checks, not uploads or recruitment processing. Do not run repeated login loops: account/IP throttling is active. See postman/README.md. Candidate signup is in Registration, skipped unless allow_registration=true. Staff signup is administrator-only."
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8012",
+      "type": "string",
+      "description": "Backend URL. No trailing slash; keep the same hostname throughout cookie-based flows."
+    },
+    {
+      "key": "origin",
+      "value": "http://localhost:3012",
+      "type": "string",
+      "description": "Must exactly match an entry in backend CORS_ORIGINS."
+    },
+    {
+      "key": "staff_email",
+      "value": "",
+      "type": "string",
+      "description": "Provisioned HR/hiring-manager account. Prefer private environment overrides."
+    },
+    {
+      "key": "staff_password",
+      "value": "",
+      "type": "string",
+      "description": "Plain account password sent to login, NOT its SHA-256 hash. Set privately in Postman; never commit real credentials."
+    },
+    {
+      "key": "candidate_email",
+      "value": "",
+      "type": "string",
+      "description": "Provisioned candidate account."
+    },
+    {
+      "key": "candidate_password",
+      "value": "",
+      "type": "string",
+      "description": "Plain candidate account password; set privately in Postman, never in the committed collection."
+    },
+    {
+      "key": "staff_application_id",
+      "value": "",
+      "type": "string",
+      "description": "Positive integer application ID for a vacancy assigned to the staff account."
+    },
+    {
+      "key": "staff_unassigned_application_id",
+      "value": "",
+      "type": "string",
+      "description": "Positive integer ID of an existing application in an unassigned vacancy."
+    },
+    {
+      "key": "candidate_application_id",
+      "value": "",
+      "type": "string",
+      "description": "Positive integer ID owned by the candidate account."
+    },
+    {
+      "key": "other_candidate_application_id",
+      "value": "",
+      "type": "string",
+      "description": "Positive integer ID owned by another candidate."
+    },
+    {
+      "key": "admin_email",
+      "value": "",
+      "type": "string",
+      "description": "Administration testing; configure privately and review target IDs before writes."
+    },
+    {
+      "key": "admin_password",
+      "value": "",
+      "type": "string",
+      "description": "Administration testing; configure privately and review target IDs before writes."
+    },
+    {
+      "key": "setup_token",
+      "value": "",
+      "type": "string",
+      "description": "Administration testing; configure privately and review target IDs before writes."
+    },
+    {
+      "key": "allow_admin_changes",
+      "value": "false",
+      "type": "string",
+      "description": "Administration testing; configure privately and review target IDs before writes."
+    },
+    {
+      "key": "admin_request_body",
+      "value": "",
+      "type": "string",
+      "description": "Administration testing; configure privately and review target IDs before writes."
+    },
+    {
+      "key": "admin_user_id",
+      "value": "",
+      "type": "string",
+      "description": "Administration testing; configure privately and review target IDs before writes."
+    },
+    {
+      "key": "admin_vacancy_id",
+      "value": "",
+      "type": "string",
+      "description": "Administration testing; configure privately and review target IDs before writes."
+    },
+    {
+      "key": "admin_assignment_id",
+      "value": "",
+      "type": "string",
+      "description": "Administration testing; configure privately and review target IDs before writes."
+    },
+    {
+      "key": "admin_application_id",
+      "value": "",
+      "type": "string",
+      "description": "Administration testing; configure privately and review target IDs before writes."
+    },
+    {
+      "key": "admin_role",
+      "value": "hiring_manager",
+      "type": "string",
+      "description": "Administration testing; configure privately and review target IDs before writes."
+    },
+    {
+      "key": "allow_registration",
+      "value": "false",
+      "type": "string",
+      "description": "Set true only to test candidate signup in the intended development environment."
+    },
+    {
+      "key": "registration_email",
+      "value": "",
+      "type": "string",
+      "description": "Candidate signup email; set privately."
+    },
+    {
+      "key": "registration_password",
+      "value": "",
+      "type": "string",
+      "description": "Original candidate password, 6–128 characters; set privately and never export it."
+    }
+  ],
+  "item": [
+    {
+      "name": "Public",
+      "description": "Safe public checks; negative auth requests disable cookies for deterministic results. Invalid login consumes a rate-limit attempt.",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Healthy\", function () { pm.expect(pm.response.json()).to.eql({status: \"ok\"}); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "No Session (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/me",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Private response is not cached\", function () { pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          }
+        },
+        {
+          "name": "Missing Origin (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/login",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman-check@example.com\",\n  \"password\": \"synthetic-invalid-password-only\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          }
+        },
+        {
+          "name": "Invalid Login (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/login",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman-invalid@example.com\",\n  \"password\": \"synthetic-invalid-password-only\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Generic login error\", function () { pm.expect(pm.response.json().detail).to.eql(\"Invalid email or password\"); });"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Staff",
+      "description": "Run in order using an existing staff account, an assigned application, and an existing unassigned application. Login replaces the active browser/Postman session.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/login",
+            "description": "Use an existing administrator-provisioned staff account. The pre-request script safely JSON-escapes credentials. Postman stores wehire_session in its cookie jar; no bearer token is used.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{staff_email}}\",\n  \"password\": \"{{staff_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!String(pm.variables.get(\"staff_email\") ?? \"\").trim()) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set staff_email in collection/environment variables before sending this request.\");",
+                  "}",
+                  "if (!String(pm.variables.get(\"staff_password\") ?? \"\").trim()) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set staff_password in collection/environment variables before sending this request.\");",
+                  "}",
+                  "",
+                  "pm.request.body.update(JSON.stringify({",
+                  "  email: pm.variables.get(\"staff_email\"),",
+                  "  password: pm.variables.get(\"staff_password\")",
+                  "}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.test(\"Numeric identity and expected role\", function () {",
+                  "    pm.expect(data.id).to.be.a(\"number\");",
+                  "    pm.expect(data.id).to.be.above(0);",
+                  "    pm.expect(data.roles.some(role => [\"hr\", \"hiring_manager\"].includes(role))).to.eql(true);",
+                  "  });",
+                  "  pm.test(\"HttpOnly session cookie issued\", function () {",
+                  "    const cookie = pm.response.headers.get(\"Set-Cookie\") || \"\";",
+                  "    pm.expect(cookie).to.include(\"wehire_session=\");",
+                  "    pm.expect(cookie.toLowerCase()).to.include(\"httponly\");",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/me",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Private response is not cached\", function () { pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CSRF Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/csrf",
+            "description": "Inspect the current session CSRF token. Logout also fetches its own fresh token automatically; no manual copying or token variables are required."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Session-bound CSRF token returned\", function () {",
+                  "    pm.expect(pm.response.json().csrf_token).to.match(/^[a-f0-9]{64}$/);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My Vacancies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/staff/access",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Only a vacancy list is returned\", function () { pm.expect(pm.response.json().vacancies).to.be.an(\"array\"); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Application Access",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/staff/applications/{{staff_application_id}}/access",
+            "description": "Set staff_application_id to an existing application under a vacancy assigned to this staff account."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!/^[1-9][0-9]*$/.test(String(pm.variables.get(\"staff_application_id\") ?? \"\"))) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set a positive integer staff_application_id in collection/environment variables before sending this request.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Requested application is permitted\", function () {",
+                  "    pm.expect(pm.response.json().application_id).to.eql(Number(pm.variables.get(\"staff_application_id\")));",
+                  "    pm.expect(pm.response.json().allowed).to.eql(true);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unassigned (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/staff/applications/{{staff_unassigned_application_id}}/access",
+            "description": "Use an EXISTING application under a vacancy NOT assigned to this staff member. A nonexistent ID returning 404 does not prove assignment isolation."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!/^[1-9][0-9]*$/.test(String(pm.variables.get(\"staff_unassigned_application_id\") ?? \"\"))) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set a positive integer staff_unassigned_application_id in collection/environment variables before sending this request.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing CSRF (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/logout",
+            "description": "Intentionally omits X-CSRF-Token; the session must remain valid."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/logout",
+            "description": "Fetches /auth/csrf using the Postman session cookie, injects X-CSRF-Token, then revokes the session. Keep the cookie jar enabled."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });",
+                  "pm.test(\"Logout has no response body\", function () { pm.expect(pm.response.text()).to.eql(\"\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logged Out (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/me",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Private response is not cached\", function () { pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Candidate",
+      "description": "Run in order with a separate candidate account, its own application ID and another candidate application ID. DISC is a separate permission capability and is not combined with screening scores.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/login",
+            "description": "Use an existing administrator-provisioned candidate account. The pre-request script safely JSON-escapes credentials. Postman stores wehire_session in its cookie jar; no bearer token is used.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{candidate_email}}\",\n  \"password\": \"{{candidate_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!String(pm.variables.get(\"candidate_email\") ?? \"\").trim()) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set candidate_email in collection/environment variables before sending this request.\");",
+                  "}",
+                  "if (!String(pm.variables.get(\"candidate_password\") ?? \"\").trim()) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set candidate_password in collection/environment variables before sending this request.\");",
+                  "}",
+                  "",
+                  "pm.request.body.update(JSON.stringify({",
+                  "  email: pm.variables.get(\"candidate_email\"),",
+                  "  password: pm.variables.get(\"candidate_password\")",
+                  "}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.test(\"Numeric identity and expected role\", function () {",
+                  "    pm.expect(data.id).to.be.a(\"number\");",
+                  "    pm.expect(data.id).to.be.above(0);",
+                  "    pm.expect(data.roles).to.eql([\"candidate\"]);",
+                  "  });",
+                  "  pm.test(\"HttpOnly session cookie issued\", function () {",
+                  "    const cookie = pm.response.headers.get(\"Set-Cookie\") || \"\";",
+                  "    pm.expect(cookie).to.include(\"wehire_session=\");",
+                  "    pm.expect(cookie.toLowerCase()).to.include(\"httponly\");",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/me",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Private response is not cached\", function () { pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CSRF Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/csrf",
+            "description": "Inspect the current session CSRF token. Logout also fetches its own fresh token automatically; no manual copying or token variables are required."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Session-bound CSRF token returned\", function () {",
+                  "    pm.expect(pm.response.json().csrf_token).to.match(/^[a-f0-9]{64}$/);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resume Access",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/applications/{{candidate_application_id}}/access/resume-submission",
+            "description": "Permission acknowledgement only. Actual upload/response APIs are not implemented yet."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!/^[1-9][0-9]*$/.test(String(pm.variables.get(\"candidate_application_id\") ?? \"\"))) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set a positive integer candidate_application_id in collection/environment variables before sending this request.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Own application is permitted\", function () {",
+                  "    pm.expect(pm.response.json().application_id).to.eql(Number(pm.variables.get(\"candidate_application_id\")));",
+                  "    pm.expect(pm.response.json().allowed).to.eql(true);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DISC Access",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/applications/{{candidate_application_id}}/access/disc-result-upload",
+            "description": "Permission acknowledgement only. Actual upload/response APIs are not implemented yet."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!/^[1-9][0-9]*$/.test(String(pm.variables.get(\"candidate_application_id\") ?? \"\"))) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set a positive integer candidate_application_id in collection/environment variables before sending this request.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Own application is permitted\", function () {",
+                  "    pm.expect(pm.response.json().application_id).to.eql(Number(pm.variables.get(\"candidate_application_id\")));",
+                  "    pm.expect(pm.response.json().allowed).to.eql(true);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Clarification Access",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/applications/{{candidate_application_id}}/access/clarification-response",
+            "description": "Permission acknowledgement only. Actual upload/response APIs are not implemented yet."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!/^[1-9][0-9]*$/.test(String(pm.variables.get(\"candidate_application_id\") ?? \"\"))) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set a positive integer candidate_application_id in collection/environment variables before sending this request.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Own application is permitted\", function () {",
+                  "    pm.expect(pm.response.json().application_id).to.eql(Number(pm.variables.get(\"candidate_application_id\")));",
+                  "    pm.expect(pm.response.json().allowed).to.eql(true);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Other Candidate (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/applications/{{other_candidate_application_id}}/access/resume-submission",
+            "description": "Use an EXISTING application owned by another candidate, preferably under the same vacancy, to prove ownership isolation."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!/^[1-9][0-9]*$/.test(String(pm.variables.get(\"candidate_application_id\") ?? \"\"))) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set a positive integer candidate_application_id in collection/environment variables before sending this request.\");",
+                  "}",
+                  "if (!/^[1-9][0-9]*$/.test(String(pm.variables.get(\"other_candidate_application_id\") ?? \"\"))) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set a positive integer other_candidate_application_id in collection/environment variables before sending this request.\");",
+                  "}",
+                  "if (String(pm.variables.get(\"candidate_application_id\")) === String(pm.variables.get(\"other_candidate_application_id\"))) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Own and other-candidate application IDs must be different.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Staff Access (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/staff/access",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/logout",
+            "description": "Fetches /auth/csrf using the Postman session cookie, injects X-CSRF-Token, then revokes the session. Keep the cookie jar enabled."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });",
+                  "pm.test(\"Logout has no response body\", function () { pm.expect(pm.response.text()).to.eql(\"\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logged Out (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/me",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Private response is not cached\", function () { pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Setup",
+      "description": "GET status is safe. First Admin is gated and only for initial setup with a private key. Never export a populated key/password.",
+      "item": [
+        {
+          "name": "Setup Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/setup/status"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "First Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/setup/admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{setup_token}}\",\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Writes are skipped unless allow_admin_changes=true. One-time bootstrap only; never reuse after setup."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const payload = {token: pm.variables.get(\"setup_token\"), email: pm.variables.get(\"admin_email\"), password: pm.variables.get(\"admin_password\")};",
+                  "pm.request.body.update(JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Explicit administrator only. Review targets and set allow_admin_changes=true to run writes; they are skipped by default. Prefer sending one write at a time instead of running this entire folder.",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/login",
+            "description": "Use an existing administrator-provisioned staff account. The pre-request script safely JSON-escapes credentials. Postman stores wehire_session in its cookie jar; no bearer token is used.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!String(pm.variables.get(\"admin_email\") ?? \"\").trim()) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set admin_email in collection/environment variables before sending this request.\");",
+                  "}",
+                  "if (!String(pm.variables.get(\"admin_password\") ?? \"\").trim()) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set admin_password in collection/environment variables before sending this request.\");",
+                  "}",
+                  "",
+                  "pm.request.body.update(JSON.stringify({",
+                  "  email: pm.variables.get(\"admin_email\"),",
+                  "  password: pm.variables.get(\"admin_password\")",
+                  "}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.test(\"Numeric identity and expected role\", function () {",
+                  "    pm.expect(data.id).to.be.a(\"number\");",
+                  "    pm.expect(data.id).to.be.above(0);",
+                  "    pm.expect(data.roles.some(role => [\"hr\", \"hiring_manager\"].includes(role))).to.eql(true);",
+                  "  });",
+                  "  pm.test(\"HttpOnly session cookie issued\", function () {",
+                  "    const cookie = pm.response.headers.get(\"Set-Cookie\") || \"\";",
+                  "    pm.expect(cookie).to.include(\"wehire_session=\");",
+                  "    pm.expect(cookie.toLowerCase()).to.include(\"httponly\");",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) pm.test(\"Explicit administrator\", function () { pm.expect(pm.response.json().is_admin).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admin/summary"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admin/users"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"new@example.com\",\n  \"password\": \"REPLACE_PRIVATELY_6_CHARACTERS_MIN\",\n  \"role\": \"hr\",\n  \"is_admin\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const raw = pm.variables.get(\"admin_request_body\");",
+                  "if (!raw) { pm.execution.skipRequest(); throw new Error(\"Set admin_request_body to the JSON payload described in this request.\"); }",
+                  "const payload = JSON.parse(raw);",
+                  "pm.request.body.update(JSON.stringify(payload));",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Access",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/users/{{admin_user_id}}/administrator",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const raw = pm.variables.get(\"admin_request_body\");",
+                  "if (!raw) { pm.execution.skipRequest(); throw new Error(\"Set admin_request_body to the JSON payload described in this request.\"); }",
+                  "const payload = JSON.parse(raw);",
+                  "pm.request.body.update(JSON.stringify(payload));",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/users/{{admin_user_id}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const raw = pm.variables.get(\"admin_request_body\");",
+                  "if (!raw) { pm.execution.skipRequest(); throw new Error(\"Set admin_request_body to the JSON payload described in this request.\"); }",
+                  "const payload = JSON.parse(raw);",
+                  "pm.request.body.update(JSON.stringify(payload));",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/users/{{admin_user_id}}/password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"REPLACE_PRIVATELY_6_CHARACTERS_MIN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const raw = pm.variables.get(\"admin_request_body\");",
+                  "if (!raw) { pm.execution.skipRequest(); throw new Error(\"Set admin_request_body to the JSON payload described in this request.\"); }",
+                  "const payload = JSON.parse(raw);",
+                  "pm.request.body.update(JSON.stringify(payload));",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Grant Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/users/{{admin_user_id}}/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"hiring_manager\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const raw = pm.variables.get(\"admin_request_body\");",
+                  "if (!raw) { pm.execution.skipRequest(); throw new Error(\"Set admin_request_body to the JSON payload described in this request.\"); }",
+                  "const payload = JSON.parse(raw);",
+                  "pm.request.body.update(JSON.stringify(payload));",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revoke Role",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/users/{{admin_user_id}}/roles/{{admin_role}}",
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Archive User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/users/{{admin_user_id}}",
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vacancies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admin/vacancies"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Vacancy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/vacancies",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Platform Engineer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const raw = pm.variables.get(\"admin_request_body\");",
+                  "if (!raw) { pm.execution.skipRequest(); throw new Error(\"Set admin_request_body to the JSON payload described in this request.\"); }",
+                  "const payload = JSON.parse(raw);",
+                  "pm.request.body.update(JSON.stringify(payload));",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit Vacancy",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/vacancies/{{admin_vacancy_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated title\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const raw = pm.variables.get(\"admin_request_body\");",
+                  "if (!raw) { pm.execution.skipRequest(); throw new Error(\"Set admin_request_body to the JSON payload described in this request.\"); }",
+                  "const payload = JSON.parse(raw);",
+                  "pm.request.body.update(JSON.stringify(payload));",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Archive Vacancy",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/vacancies/{{admin_vacancy_id}}",
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assignments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admin/assignments"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assign Staff",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/assignments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"vacancy_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const raw = pm.variables.get(\"admin_request_body\");",
+                  "if (!raw) { pm.execution.skipRequest(); throw new Error(\"Set admin_request_body to the JSON payload described in this request.\"); }",
+                  "const payload = JSON.parse(raw);",
+                  "pm.request.body.update(JSON.stringify(payload));",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove Access",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/assignments/{{admin_assignment_id}}",
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Applications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admin/applications"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Application",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"candidate_user_id\": 1,\n  \"vacancy_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const raw = pm.variables.get(\"admin_request_body\");",
+                  "if (!raw) { pm.execution.skipRequest(); throw new Error(\"Set admin_request_body to the JSON payload described in this request.\"); }",
+                  "const payload = JSON.parse(raw);",
+                  "pm.request.body.update(JSON.stringify(payload));",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Archive Application",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/admin/applications/{{admin_application_id}}",
+            "description": "Writes are skipped unless allow_admin_changes=true. Administrator session + automatic CSRF required. Set the target ID variables. For JSON requests, set admin_request_body privately to the desired JSON object; the displayed body shows the required shape. Passwords are original passwords, not hashes. DELETE soft-deletes and retains rows. Test only on intended development records."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_admin_changes\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_url}}/auth/logout",
+            "description": "Fetches /auth/csrf using the Postman session cookie, injects X-CSRF-Token, then revokes the session. Keep the cookie jar enabled."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const target = String(pm.variables.get(\"base_url\")).replace(/\\/$/, \"\");",
+                  "pm.sendRequest({ url: target + \"/auth/csrf\", method: \"GET\" }, function (error, response) {",
+                  "  if (error || !response || response.code !== 200) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Sign in first. Could not obtain the current session CSRF token.\");",
+                  "  }",
+                  "  const token = response.json().csrf_token;",
+                  "  if (!/^[a-f0-9]{64}$/.test(token)) {",
+                  "    pm.execution.skipRequest();",
+                  "    throw new Error(\"Unexpected CSRF token response.\");",
+                  "  }",
+                  "  pm.request.headers.upsert({ key: \"X-CSRF-Token\", value: token });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });",
+                  "pm.test(\"Logout has no response body\", function () { pm.expect(pm.response.text()).to.eql(\"\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Registration",
+      "description": "Candidate self-registration. Explicit opt-in is required because signup creates records. Staff creation remains administrator-only.",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{registration_email}}\",\n  \"password\": \"{{registration_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Skipped unless allow_registration=true. Candidate-only registration: no role selector, verification email or auto-login. Real new accounts receive candidate only; duplicate/archived emails receive the same public acknowledgement. Negative injection requests must not create accounts."
+          },
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_registration\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const email = pm.variables.get(\"registration_email\");",
+                  "const password = pm.variables.get(\"registration_password\");",
+                  "if (!email || !password) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set registration_email and registration_password privately before testing signup.\");",
+                  "}",
+                  "pm.request.body.update(JSON.stringify({email, password: password}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 202\", function () { pm.response.to.have.status(202); });",
+                  "if (pm.response.code === 202) {",
+                  "  pm.test(\"Generic acknowledgement without identity or credentials\", function () {",
+                  "    pm.expect(Object.keys(pm.response.json())).to.eql([\"message\"]);",
+                  "    pm.expect(pm.response.json().message).to.be.a(\"string\");",
+                  "    pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Repeat",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{registration_email}}\",\n  \"password\": \"{{registration_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Skipped unless allow_registration=true. Candidate-only registration: no role selector, verification email or auto-login. Real new accounts receive candidate only; duplicate/archived emails receive the same public acknowledgement. Negative injection requests must not create accounts."
+          },
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_registration\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const email = pm.variables.get(\"registration_email\");",
+                  "const password = pm.variables.get(\"registration_password\");",
+                  "if (!email || !password) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set registration_email and registration_password privately before testing signup.\");",
+                  "}",
+                  "pm.request.body.update(JSON.stringify({email, password: password}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 202\", function () { pm.response.to.have.status(202); });",
+                  "if (pm.response.code === 202) {",
+                  "  pm.test(\"Generic acknowledgement without identity or credentials\", function () {",
+                  "    pm.expect(Object.keys(pm.response.json())).to.eql([\"message\"]);",
+                  "    pm.expect(pm.response.json().message).to.be.a(\"string\");",
+                  "    pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid Password",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{registration_email}}\",\n  \"password\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Skipped unless allow_registration=true. Candidate-only registration: no role selector, verification email or auto-login. Real new accounts receive candidate only; duplicate/archived emails receive the same public acknowledgement. Negative injection requests must not create accounts."
+          },
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_registration\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const email = pm.variables.get(\"registration_email\");",
+                  "const password = pm.variables.get(\"registration_password\");",
+                  "if (!email || !password) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set registration_email and registration_password privately before testing signup.\");",
+                  "}",
+                  "pm.request.body.update(JSON.stringify({email, password: \"short\"}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Role Injection",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{registration_email}}\",\n  \"password\": \"{{registration_password}}\",\n  \"role\": \"hr\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Skipped unless allow_registration=true. Candidate-only registration: no role selector, verification email or auto-login. Real new accounts receive candidate only; duplicate/archived emails receive the same public acknowledgement. Negative injection requests must not create accounts."
+          },
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_registration\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const email = pm.variables.get(\"registration_email\");",
+                  "const password = pm.variables.get(\"registration_password\");",
+                  "if (!email || !password) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set registration_email and registration_password privately before testing signup.\");",
+                  "}",
+                  "pm.request.body.update(JSON.stringify({email, password: password, ...{\"role\": \"hr\"}}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin Injection",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{registration_email}}\",\n  \"password\": \"{{registration_password}}\",\n  \"is_admin\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Skipped unless allow_registration=true. Candidate-only registration: no role selector, verification email or auto-login. Real new accounts receive candidate only; duplicate/archived emails receive the same public acknowledgement. Negative injection requests must not create accounts."
+          },
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_registration\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const email = pm.variables.get(\"registration_email\");",
+                  "const password = pm.variables.get(\"registration_password\");",
+                  "if (!email || !password) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set registration_email and registration_password privately before testing signup.\");",
+                  "}",
+                  "pm.request.body.update(JSON.stringify({email, password: password, ...{\"is_admin\": true}}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Staff Signup Blocked",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/staff/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{registration_email}}\",\n  \"password\": \"{{registration_password}}\",\n  \"role\": \"hiring_manager\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Skipped unless allow_registration=true. Candidate-only registration: no role selector, verification email or auto-login. Real new accounts receive candidate only; duplicate/archived emails receive the same public acknowledgement. Negative injection requests must not create accounts."
+          },
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get(\"allow_registration\")) !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "  return;",
+                  "}",
+                  "const email = pm.variables.get(\"registration_email\");",
+                  "const password = pm.variables.get(\"registration_password\");",
+                  "if (!email || !password) {",
+                  "  pm.execution.skipRequest();",
+                  "  throw new Error(\"Set registration_email and registration_password privately before testing signup.\");",
+                  "}",
+                  "pm.request.body.update(JSON.stringify({email, password: password, ...{\"role\": \"hiring_manager\"}}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,7 @@
-"""Future table models belong here and must inherit from app.db.base.Base.
+"""Register all models and their ORM soft-delete policy."""
+from app.models.identity import (
+    Administrator, AdminSetup, Application, AuthSession, LoginRateLimit, Role, User, UserRole, Vacancy, VacancyAssignment,
+)
+from app.db import soft_delete as _soft_delete  # noqa: F401 -- register Session listeners
 
-Import new model modules in this package so Alembic discovers their metadata.
-No recruitment tables are introduced by the database foundation.
-"""
+__all__ = ["Administrator", "AdminSetup", "Application", "AuthSession", "LoginRateLimit", "Role", "User", "UserRole", "Vacancy", "VacancyAssignment"]

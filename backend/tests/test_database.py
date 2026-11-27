@@ -76,7 +76,7 @@ def test_baseline_generates_postgresql_sql_without_credentials(monkeypatch) -> N
     )
     output = StringIO()
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"), output_buffer=output)
-    command.upgrade(config, "head", sql=True)
+    command.upgrade(config, "0001_baseline", sql=True)
     sql = output.getvalue()
     assert "CREATE TABLE alembic_version" in sql
     assert "0001_baseline" in sql

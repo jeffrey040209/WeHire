@@ -1,8 +1,1 @@
-from fastapi import APIRouter
-
-router = APIRouter()
-
-
-@router.get("/health", tags=["health"])
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+"""API route modules; register routers explicitly in app.main."""

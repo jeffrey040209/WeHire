@@ -11,46 +11,54 @@ source-linked evidence and explanations that recruiters can review.
 
 ## Current implementation
 
-This repository currently contains the **development scaffold and PostgreSQL foundation**:
+This repository currently contains the **development scaffold, PostgreSQL foundation and custom authentication/access controls**:
 
 - FastAPI backend with environment-based settings, CORS and a tested health endpoint.
 - Next.js frontend with TypeScript, Tailwind CSS and the App Router.
 - Environment examples and local development configuration.
 - PostgreSQL-only Docker Compose setup with a readiness check and persistent named volume.
-- Lazy PostgreSQL connection/session management, a shared SQLAlchemy model base,
-  an empty models package and Alembic with a no-table baseline migration.
+- Lazy PostgreSQL connection/session management, shared SQLAlchemy models and
+  Alembic baseline plus identity/access migrations.
+- WeHire-managed email/password login, plain SHA-256 password hashes (explicit project choice), revocable opaque
+  sessions, CSRF checks and database-backed login throttling.
+- Candidate self-registration with a server-assigned candidate role and a protected
+  account-confirmation page; email verification remains planned.
+- Staff sign-in/sign-out, a protected assigned-vacancy workspace, and server-side
+  candidate ownership/staff assignment checks.
+- One-time administrator setup and a protected console for accounts, roles,
+  vacancy records, assignments and applications; the provisioning CLI is removed.
 
-The frontend still displays its starter page. Recruitment screens, authentication,
-agent workflows, scoring, storage and DISC interpretation are **planned, not
-implemented**. The sections below describe the intended product and architecture.
+Full recruitment screens, uploads, agent workflows, scoring, file storage and DISC
+interpretation are **planned, not implemented**. The sections below describe the intended product and architecture.
 
 **Selected database: PostgreSQL.** The planned design stores application records
 and original uploaded files in PostgreSQL, using `BYTEA` for binary content and
-pgvector for project-document embeddings. Connection/session infrastructure and migrations are implemented; recruitment
-tables, file-storage features and the remaining AI libraries are still planned.
+pgvector for project-document embeddings. Connection/session infrastructure, identity tables and minimal vacancy/application
+access records are implemented. Full recruitment schemas, file storage and AI
+libraries remain planned.
 
 ## Technology stack and implementation status
 
 | Layer | Technology | Purpose in WeHire | Status |
 | --- | --- | --- | --- |
-| Frontend | Next.js App Router, React, TypeScript | Three candidate input forms, HR dashboard and hiring-manager workspace. | Installed; starter UI only. |
+| Frontend | Next.js App Router, React, TypeScript | Three candidate input forms, HR dashboard and hiring-manager workspace. | Candidate sign-up/account confirmation, staff sign-in/out, protected admin/staff workspaces and setup implemented; input forms and processing planned. |
 | Styling | Tailwind CSS | Separate candidate and HR themes and responsive components. | Installed; product screens planned. |
-| API | Python 3.12+, FastAPI, Uvicorn | Authenticated endpoints, uploads, workflow requests and result retrieval. | Health endpoint and CORS implemented. |
-| Configuration | pydantic-settings | Backend environment configuration and validation. | Implemented for app name and CORS. |
+| API | Python 3.12+, FastAPI, Uvicorn | Authenticated endpoints, uploads, workflow requests and result retrieval. | Health, authentication and permission-demonstration endpoints implemented. |
+| Configuration | pydantic-settings | Backend environment configuration and validation. | Implemented for shared root configuration, database and authentication settings. |
 | Request and result validation | Pydantic | Typed API schemas and structured agent results. | Available through FastAPI; recruitment schemas planned. |
-| Main database | PostgreSQL | Relational records, versions, permissions, processing jobs and audit events. | Connection infrastructure implemented; application tables planned. |
+| Main database | PostgreSQL | Relational records, versions, permissions, processing jobs and audit events. | Identity, sessions and minimal access records implemented; full recruitment tables planned. |
 | Original file storage | PostgreSQL `BYTEA` | Store actual PDF, DOCX, PNG and JPG bytes in a separate content table. | Selected; integration planned. |
 | Flexible structured fields | PostgreSQL `JSONB` | Versioned extraction details, warnings and agent result payloads. | Planned; IDs, relationships and core scores remain typed columns/tables. |
 | Database access | SQLAlchemy with Psycopg 3 | Database models, transactions, connection pooling and PostgreSQL access. | Implemented; sessions require explicit commit. |
-| Schema migrations | Alembic | Reproducible changes to tables, constraints, indexes and extensions. | Configured with a baseline that creates no application tables. |
+| Schema migrations | Alembic | Reproducible changes to tables, constraints, indexes and extensions. | Baseline and explicit identity/access migration implemented. |
 | Project RAG | pgvector extension and Python integration | Similarity search over permission-scoped project passages. | Proposed; extension and Python dependency not installed. |
 | Agent orchestration | LangGraph | Stateful nodes, conditional routing, parallel checks and human review pauses. | Proposed; not installed. |
 | Model and tool integrations | Provider SDKs; optional LangChain integrations | Structured model calls, embeddings and approved external research tools. | Providers and models to select; not configured. |
 | Text document parsing | `pypdf` and `python-docx` | Extract readable text and source locations from PDF and DOCX uploads. | Proposed; scanned PDFs need an additional OCR/vision path. |
 | Image and scanned-document processing | Pillow plus an OCR engine or vision-capable model | Validate images and read scanned resumes or DISC screenshots. | Proposed; OCR/vision provider to select and evaluate. |
-| Authentication | Verified identity/session tokens and backend permission checks | Candidate ownership, staff access and assigned-vacancy restrictions. | Provider and implementation planned. |
+| Authentication | WeHire-managed accounts, hashlib SHA-256, opaque cookie sessions | Password verification, session expiry/revocation and record permissions. | Implemented, including administrator-managed passwords; self-service recovery and MFA planned. |
 | Background processing | Python worker with persistent PostgreSQL job records | File extraction, embeddings, research and screening outside upload requests. | Proposed; queue implementation planned. |
-| Testing | pytest, HTTPX, FastAPI TestClient | API checks and future ownership, scoring and workflow tests. | Health test implemented; recruitment tests planned. |
+| Testing | pytest, HTTPX, FastAPI TestClient | API checks and future ownership, scoring and workflow tests. | Health, authentication, permissions, administration, setup and PostgreSQL checks implemented; recruitment-processing tests planned. |
 | Frontend checks | ESLint, TypeScript and Next.js build | Linting, type validation and production build checks. | Configured in scaffold. |
 | Local database environment | Docker Compose, PostgreSQL 17 | Local-only database service, readiness check and persistent named volume. | Configured; frontend and backend still run on the host. |
 | Backend dependency management | uv, pyproject.toml and uv.lock | Runtime/dev dependency declarations, locked resolution and local environments. | Migrated from pip requirements; dev tools are grouped separately. |
@@ -199,7 +207,7 @@ built, and verify them throughout rather than waiting until the final step.
 ### Step 1 Establish identity and access controls
 
 - **Tech stack:** Next.js/React/TypeScript sign-in UI; FastAPI authentication dependencies; verified
-  identity/session tokens (provider to select); SQLAlchemy and PostgreSQL for memberships and
+  WeHire-managed email/password accounts and opaque cookie sessions; SQLAlchemy and PostgreSQL for memberships and
   access scope. Backend code enforces ownership and permissions.
 - **Build:** HR and hiring-manager sign-in plus authenticated or application-bound
   candidate input access; company, project and assigned-vacancy permissions;
@@ -672,10 +680,11 @@ backend/
   alembic.ini         # No database credentials stored here
   app/
     db/               # Shared model base and lazy engine/session helpers
-    models/           # Register future table models here
-    api/routes/       # API router and health endpoint
-    core/config.py    # Environment-based settings
+    models/           # Identity, sessions and minimal access models
+    api/routes/       # Health, authentication and minimal access APIs
+    core/             # Shared settings, identity and permission dependencies
     main.py           # FastAPI application
+    services/         # Shared account/role business rules
   tests/              # Backend tests
   pyproject.toml      # Runtime/dev dependencies and tool settings
   uv.lock             # Resolved dependency versions
@@ -717,7 +726,7 @@ cp -n .env.example .env
 # Edit root .env privately before starting PostgreSQL.
 cd backend
 uv sync --locked
-uv run --locked uvicorn app.main:app --reload --port 8012
+uv run --locked uvicorn app.main:app --reload --port 8012 --no-proxy-headers
 ```
 
 `uv sync --locked` creates or synchronises `backend/.venv` from `pyproject.toml`
@@ -779,7 +788,7 @@ Do not create backend/frontend copies; Next.js may give local copies precedence.
 | Variables in root `.env` | Used by | Purpose |
 | --- | --- | --- |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` | Docker Compose | Initialise PostgreSQL and publish its local port. |
-| `DATABASE_URL`, `APP_NAME`, `CORS_ORIGINS` | FastAPI and Alembic | Database access and backend settings. |
+| `DATABASE_URL`, `APP_NAME`, `CORS_ORIGINS`, `AUTH_*` | FastAPI and Alembic | Database access, backend settings, cookie security, expiry and login limits. |
 | `NEXT_PUBLIC_API_URL` | Next.js | Public API address, embedded at frontend build time. |
 
 FastAPI reads root `.env` directly. `frontend/next.config.ts` loads it through
@@ -835,9 +844,12 @@ uv run --locked alembic current
 uv run --locked alembic history
 ```
 
-The initial revision `0001_baseline` has no application DDL. Online migration
-creates only Alembic's `alembic_version` tracking table. It does not create users,
-vacancies, documents, recruitment tables or the pgvector extension.
+`0001_baseline` establishes migration history without application DDL.
+`0002_identity` adds users, roles, user-role links, sessions, login-rate counters,
+minimal vacancies, vacancy assignments and candidate-owned applications. Only role
+names are seeded; no users, passwords, sessions or sample applications are created.
+No document storage, screening, DISC or pgvector tables are included. Migrations
+are explicit commands; application startup does not apply them automatically.
 
 `app.db.base.Base` supplies shared metadata. Future SQLAlchemy models belong in
 `app/models/` and must be imported from its `__init__.py` so Alembic discovers
@@ -865,10 +877,10 @@ operations and migrations require a configured, reachable database.
 uv run --locked pytest -q
 ```
 
-The normal suite checks health independence, secret masking, SQLAlchemy session
-commit/rollback behaviour and offline PostgreSQL migration SQL. The session unit
-test uses in-memory SQLite only for lifecycle semantics; it is not proof of
-PostgreSQL connectivity.
+Without a test URL, the suite checks health independence, configuration, secrets,
+session lifecycle and authentication/permission behaviour using in-memory SQLite.
+PostgreSQL migration, concurrency and duplicated authentication integration checks
+are explicitly skipped. SQLite results do not prove PostgreSQL behaviour.
 
 For a real integration check, create a **new empty test database**, separate from
 `wehire_dev`. From the repository root, choose an unused name (shown here as
@@ -895,7 +907,7 @@ env["TEST_DATABASE_URL"] = get_database_url().set(
     database="wehire_test_001"
 ).render_as_string(hide_password=False)
 subprocess.run(
-    ["uv", "run", "--locked", "pytest", "tests/test_postgresql.py", "-q"],
+    ["uv", "run", "--locked", "pytest", "-q"],
     env=env,
     check=True,
 )
@@ -903,15 +915,17 @@ PY
 ```
 
 Alternatively, provide `TEST_DATABASE_URL` privately in the process environment
-and run `uv run --locked pytest tests/test_postgresql.py -q`. The test reads this
+and run `uv run --locked pytest -q`. The test reads this
 variable from the environment, not a test URL stored in `.env`.
 
-That check verifies authenticated connectivity, requires an empty default schema,
-applies the baseline twice and verifies only `alembic_version` exists. It never
-resets or drops the database and leaves migration history in place. Use a fresh
-empty test database for another run. With no `TEST_DATABASE_URL`, it is explicitly
-skipped. Do not run migrations on the empty test database first: the integration
-test itself applies them.
+The PostgreSQL fixture requires an empty default schema, applies the baseline,
+then upgrades to the current head twice and checks that Alembic detects no model
+drift. Authentication/permission tests run against both SQLite and real PostgreSQL;
+PostgreSQL also verifies atomic throttling across concurrent connections. Test
+records are isolated with transactions where possible; migration history and
+concurrency-test counters remain in the dedicated database. No database is reset
+or dropped. Use a NEW empty test database for another run, and do not migrate it
+first: the test fixture applies migrations itself.
 
 To check development data persistence, apply migrations to `wehire_dev`, run
 `docker compose restart postgres` from the root, wait for healthy status with
@@ -919,6 +933,245 @@ To check development data persistence, apply migrations to `wehire_dev`, run
 again from `backend/`. The migration revision should remain unchanged. The same
 check after `docker compose down` followed by `up -d --wait postgres` verifies
 container recreation with the retained named volume.
+
+## Custom authentication and permissions (Step 3)
+
+Authentication is managed by WeHire; no Auth0, Entra ID or other identity provider
+is required. This implementation assumes one company. Multi-company tenancy,
+project permissions and additional recruitment actions remain future work.
+
+### Set up and administer through the frontend
+
+The administration UI replaces `cli.py`; no account-provisioning CLI is required.
+Existing HR and hiring-manager accounts are NOT automatically administrators.
+
+1. Keep the shared root `.env`; use `AUTH_COOKIE_SECURE=false` only for local HTTP.
+2. Start PostgreSQL. From `backend/`, run `uv sync --locked` and
+   `uv run --locked alembic upgrade head`. The forward `0003_admin_console`
+   migration adds explicit administrator memberships and one-time setup state;
+   it never resets records or elevates existing staff. Migrations are not run
+   automatically on startup.
+3. Set a private `BOOTSTRAP_TOKEN` in root `.env` with at least 32 random
+   characters. To generate one without printing it or overwriting an existing key,
+   run the following from `backend/`:
+
+```bash
+uv run --locked python - <<'PY'
+import secrets
+from pathlib import Path
+from dotenv import dotenv_values, set_key
+
+path = Path.cwd().parent / ".env"
+if not path.is_file():
+    raise SystemExit("Create the root .env from .env.example first.")
+if not dotenv_values(path).get("BOOTSTRAP_TOKEN"):
+    set_key(path, "BOOTSTRAP_TOKEN", secrets.token_urlsafe(32), quote_mode="always")
+print("Private setup key configured; open root .env locally to retrieve it.")
+PY
+```
+
+4. Restart the backend after changing settings, start the frontend and open
+   `http://localhost:3012/setup`. Enter the private setup key, a new administrator
+   email and a password of 6–128 characters. This explicitly creates the first
+   HR administrator; it does not overwrite or promote existing accounts.
+5. Sign in at `/sign-in`; administrators open `/admin`. Remove `BOOTSTRAP_TOKEN`
+   from local/deployment configuration after setup and restart the backend.
+   Setup is also permanently closed by database state and administrator history,
+   including archived memberships, so deleting accounts cannot reopen it.
+
+The setup key is server-side only: never use a `NEXT_PUBLIC_` prefix, place it in a
+URL, commit it, or share a populated Postman export. The setup endpoint requires
+an exact trusted Origin, is rate-limited, and uses a locked singleton row to
+serialize concurrent first-administrator requests. With no configured key,
+setup is disabled. There is no public staff registration endpoint; candidate-only
+registration is described below.
+
+The protected administration console provides:
+
+| Screen | Available actions |
+| --- | --- |
+| Team & accounts | Create accounts, grant/revoke roles, enable/disable users, set passwords, explicitly grant/remove administrator access and archive accounts. |
+| Vacancies | Create/edit minimal vacancy titles and archive vacancy records. Full JD posting remains future work. |
+| Staff assignments | Search staff/vacancies, assign staff and remove assigned access. |
+| Applications | Search candidate/vacancy records, link a candidate to a vacancy and archive an application. Actual submission forms and processing remain future work. |
+
+Lists support pagination and archived-record inspection; users and vacancies can
+be searched. Password changes and account disabling revoke sessions. Candidate
+and staff accounts remain separate, including historical roles. The last active
+administrator cannot be disabled, deleted or demoted, and an administrator must
+retain at least one staff role. No administrator is seeded by default.
+
+Administrator permission controls global account/access metadata through `/admin`
+only. Normal screening/access APIs still require vacancy assignment, even for
+administrators. Non-administrator HR/managers cannot manage accounts or grant
+themselves access. Every administrative mutation requires a current administrator
+session, trusted Origin and CSRF token. The UI displays confirmation for archive,
+status and administrator-access changes.
+
+### Candidate self-registration and staff provisioning
+
+- Candidates use `http://localhost:3012/sign-up`, linked from `/sign-in`.
+  The form accepts email, password and a client-side password confirmation.
+  The backend receives only email/password and assigns `candidate` itself.
+  It rejects all additional fields, including roles, administrator flags,
+  permissions, user IDs, application IDs and vacancy ownership fields.
+- `POST /auth/register` requires an exact trusted Origin. Email is normalised and
+  passwords follow the existing 6–128 character creation policy and selected
+  password hasher. New users, their candidate role link and no other privileges
+  are created atomically. There is no automatic application creation or matching
+  of historical applications based on an email address.
+- New, existing, disabled and archived emails receive the same `202` acknowledgement.
+  Existing passwords, activity/deletion state, roles and sessions are never changed
+  by registration. Archived emails remain reserved. Concurrent duplicate requests
+  cannot create multiple accounts. The endpoint returns no user ID, password/hash
+  or session token and does not set a login cookie.
+- Candidates sign in separately using `/sign-in` and then open `/candidate`.
+  This page confirms their own authenticated account only. Resume Submission,
+  DISC Result Upload and Clarification Response are explicitly shown as future
+  input pages; no forms, application tracking, job browsing or AI processing are
+  introduced. Existing API permission checks continue to enforce application
+  ownership. Administrators can associate the candidate with a vacancy through
+  the existing Applications screen when preparing access records.
+- Staff accounts are created in **Admin → Team & accounts → Create account**.
+  Choose HR or hiring manager; assign vacancies in **Staff assignments**. Role
+  grants/revocations and administrator membership remain protected administrator
+  actions. There is no staff self-registration page/API or client-selectable
+  privileged role in candidate registration. Administrators can still provision
+  candidate accounts if needed.
+- Registration throttles are independent from login/setup counters, persist in
+  PostgreSQL across workers and return `429` with `Retry-After`. Defaults are
+  `AUTH_REGISTER_EMAIL_LIMIT=3` per normalised email and
+  `AUTH_REGISTER_IP_LIMIT=10` per client IP in
+  `AUTH_REGISTER_WINDOW_SECONDS=3600`. The IP dependency also counts field-invalid
+  JSON registration requests. A trusted-Origin rejection occurs before DB work.
+- **Email verification is planned, not implemented.** Registration validates email
+  syntax but sends no verification email and does not verify mailbox ownership.
+  New candidate accounts can sign in immediately. The UI uses a generic receipt,
+  never a claim that verification was sent or completed.
+
+No new schema migration is required for registration: it uses the existing users,
+roles and namespaced rate-limit counter records. Existing databases still need
+the current migration head (`0003_admin_console`). Optional registration settings
+are documented in the shared root `.env.example`; code defaults apply when they
+are absent. Restart the backend after changing configuration.
+
+### Numeric IDs, timestamp order and soft deletion
+
+Every application table has an integer `id` primary key generated by PostgreSQL
+`IDENTITY` starting at 1. Foreign keys are integers too, including `role_id` on
+`user_roles`. Roles retain their stable names (`hr`, `hiring_manager`, `candidate`)
+for permission checks. API responses return numeric IDs; routes and administration forms
+accept positive integer IDs. Session cookie tokens remain cryptographically random;
+an integer session row ID is never a login credential.
+
+IDs increase independently per table; they are identifiers, not gap-free row
+numbers. Rollbacks and upserts can consume sequence values. Deleted records keep
+their IDs, and IDs are not renumbered or reused to fill gaps.
+
+All business columns appear first. Date/time fields follow them, ending with
+`created_at`, `updated_at`, **`deleted_at` as the last column**. Session expiry and
+revocation dates, and rate-limit expiry, also sit in the timestamp section. The
+schema uses timezone-aware timestamps; ORM updates maintain `updated_at`.
+Administration API/UI dates use `YYYY-MM-DD HH:mm:ss`, for example
+`2026-11-27 12:09:48`, in Asia/Kuala_Lumpur (UTC+08:00). The display format does
+not convert database timestamps to text or discard stored precision.
+
+Normal ORM reads and updates exclude records where `deleted_at` is populated.
+The application converts `Session.delete(record)` to soft deletion and rejects
+bulk `Session.execute(delete(...))`. Foreign keys use RESTRICT rather than physical
+cascading deletes. Old login counters are archived by timestamp, not removed.
+Explicit schema downgrades remain destructive migration operations and are not
+used for deleting application records.
+
+Use the administration screens' **Archive**, **Roles** and **Remove access**
+actions instead of terminal commands. Archiving a user also disables it,
+revokes/archives its sessions and soft-deletes its administrator membership,
+role links, assignments and owned applications. Archiving a vacancy soft-deletes
+its assignments and applications. Revoking a role or assignment removes access
+immediately. **Disable** only disables an account and revokes sessions; it does
+not mark the account deleted.
+
+Re-granting a role or re-assigning a vacancy explicitly restores its existing
+link row instead of duplicating it. Candidate/staff account separation is enforced
+against historical roles too. Emails and application/assignment uniqueness remain
+reserved across archived rows. General restore UI and a full event audit trail are
+future work; trusted maintenance code may use
+`.execution_options(include_deleted=True)` to inspect retained rows. Normal APIs never accept this option. Only administrator list endpoints expose
+a restricted `include_archived` option for authorised inspection.
+
+The uncommitted `0002_identity` migration was revised before it was applied to the
+development database (confirmed empty). Fresh databases get this schema directly.
+No existing UUID database was reset or converted. A database already on the older
+UUID version of this revision needs a separately reviewed data-preserving
+conversion migration; do not reset it or blindly reuse this revised revision.
+
+### API and access behaviour
+
+| Endpoint | Requirement / result |
+| --- | --- |
+| `POST /auth/register` | Public candidate-only registration with trusted Origin, strict fields, independent limits and generic `202` acknowledgement. |
+| `POST /auth/login` | JSON email/password plus exact trusted `Origin`; returns identity and sets the session cookie. Generic failure for wrong, missing or disabled accounts. |
+| `GET /auth/me` | Valid session; returns user ID, email, database-backed roles and explicit `is_admin` status. |
+| `GET /auth/csrf` | Valid session; returns the session-bound CSRF token for state-changing requests. |
+| `POST /auth/logout` | Valid session, trusted `Origin` and `X-CSRF-Token`; revokes the session and expires its cookie. |
+| `GET /staff/access` | HR/hiring-manager role; returns only assigned vacancy IDs/titles (empty if none assigned). |
+| `GET /staff/applications/{id}/access` | Staff role AND vacancy assignment; returns a minimal permission acknowledgement. |
+| `GET /applications/{id}/access/{capability}` | Candidate role AND application ownership. Capabilities: `resume-submission`, `disc-result-upload`, `clarification-response`. |
+| `GET /health` | Public liveness check; never accesses PostgreSQL. |
+| `GET /setup/status`, `POST /setup/admin` | One-time setup availability and secret-key-authorised initial administrator creation. |
+| `GET /admin/summary` | Administrator-only metadata counts. |
+| `GET/POST /admin/users` | Paginated/searchable accounts and account creation. |
+| `PUT /admin/users/{id}/administrator` | Explicit administrator grant/removal; protects the last active administrator. |
+| `PATCH /admin/users/{id}/status`, `PUT /admin/users/{id}/password` | Enable/disable accounts or set a password; disabling/password changes revoke sessions. |
+| `POST /admin/users/{id}/roles`, `DELETE /admin/users/{id}/roles/{role}` | Explicit role grant/revocation, including safe restoration of an archived role link. |
+| `DELETE /admin/users/{id}` | Soft-delete account and related access. |
+| `GET/POST /admin/vacancies`, `PATCH/DELETE /admin/vacancies/{id}` | Minimal vacancy records and soft deletion. |
+| `GET/POST /admin/assignments`, `DELETE /admin/assignments/{id}` | Staff-vacancy assignment management. |
+| `GET/POST /admin/applications`, `DELETE /admin/applications/{id}` | Candidate-vacancy ownership records and soft deletion. |
+
+The candidate endpoints demonstrate access only: no upload forms, processing,
+application tracking, screening scores or DISC results are returned. Records
+outside a user's scope return `404` to avoid confirming their existence. Missing,
+invalid, expired, revoked or disabled-account sessions return `401`; role or CSRF
+failures return `403`.
+
+### Session and request security
+
+- Passwords use plain unsalted SHA-256 via Python `hashlib`, stored as
+  `sha256$<hex-digest>`, as explicitly selected for this project to avoid Argon2's
+  memory cost. This is a fast hash and provides weaker offline password protection
+  than Argon2id/PBKDF2; it is not an equivalent password-hardening scheme.
+  Verification uses constant-time comparison. Password hashes and session tokens
+  are never returned in API payloads. Argon2 is no longer a dependency.
+- Existing Argon2 hashes cannot be converted without the original password. A
+  authorised administrator can use **Team & accounts → Password** to set
+  a password in the selected format and revoke existing sessions. No automatic
+  account/hash reset is performed.
+- Sessions use random 256-bit opaque tokens, stored only as SHA-256 hashes in
+  PostgreSQL. The host-only `wehire_session` cookie is HttpOnly, SameSite=Lax,
+  path `/`, and Secure according to `AUTH_COOKIE_SECURE`. Default absolute expiry
+  is eight hours (`AUTH_SESSION_SECONDS`); logout, account disabling and expiry
+  are checked server-side. Signing in rotates a session presented by that browser.
+- State-changing requests must match an exact `CORS_ORIGINS` origin. Login uses
+  this check against login-CSRF. Authenticated mutations must additionally use
+  `require_csrf` and the synchroniser token from `/auth/csrf`. Browser fetches use
+  `credentials: "include"`; the token is kept in memory, not localStorage.
+- Authentication/access responses are `no-store`. Backend checks derive identity,
+  roles, assignments and ownership from the database, never submitted IDs/roles.
+- Login limits apply to all attempts, successful or failed: default 5 per account
+  and 30 per client IP per fixed 300-second window. PostgreSQL counters are atomic
+  and shared across processes; `429` includes `Retry-After`. Counters contain
+  hashed keys; old counters are soft-deleted on login and remain stored. This is application throttling,
+  not comprehensive network/DDoS protection.
+- Local launch commands disable proxy headers so clients cannot forge their IP.
+  Behind a deployment proxy, configure only explicitly trusted proxy addresses.
+  Keep frontend/API on the same site, use HTTPS and secure cookies in deployment.
+  Use `localhost` consistently for browser URLs; do not mix it with `127.0.0.1`.
+
+Self-service password reset/recovery, MFA, email verification and automated
+session-retention maintenance are planned. Administrators can set passwords and disable
+accounts now; do not claim recovery or production deployment checks are complete.
+DISC remains a separate future application record, never part of screening scores.
 
 ## Run the frontend
 
@@ -935,7 +1188,11 @@ Open <http://localhost:3012>. Both `npm run dev` and `npm start` use port 3012.
 defaults in the example to `http://localhost:8012`. Variables prefixed with
 `NEXT_PUBLIC_` are public browser configuration, not secrets.
 The frontend reads the shared root `.env`; no `frontend/.env.local` is needed.
-The existing starter page is preserved and does not yet call the API.
+The frontend opens the protected staff workspace (redirecting unauthenticated users
+to `/sign-in`) and calls the authentication/access APIs. Administrators can open
+`/admin`; first-time setup is at `/setup`. Candidate sign-up is at `/sign-up`,
+and signed-in candidates use the limited `/candidate` confirmation page. Candidate forms remain
+planned; no job browsing or tracking pages are provided.
 
 Validate a production build:
 

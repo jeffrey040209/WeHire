@@ -16,6 +16,7 @@ This repository currently contains the **development scaffold and PostgreSQL fou
 - FastAPI backend with environment-based settings, CORS and a tested health endpoint.
 - Next.js frontend with TypeScript, Tailwind CSS and the App Router.
 - Environment examples and local development configuration.
+- PostgreSQL-only Docker Compose setup with a readiness check and persistent named volume.
 - Lazy PostgreSQL connection/session management, a shared SQLAlchemy model base,
   an empty models package and Alembic with a no-table baseline migration.
 
@@ -51,6 +52,7 @@ tables, file-storage features and the remaining AI libraries are still planned.
 | Background processing | Python worker with persistent PostgreSQL job records | File extraction, embeddings, research and screening outside upload requests. | Proposed; queue implementation planned. |
 | Testing | pytest, HTTPX, FastAPI TestClient | API checks and future ownership, scoring and workflow tests. | Health test implemented; recruitment tests planned. |
 | Frontend checks | ESLint, TypeScript and Next.js build | Linting, type validation and production build checks. | Configured in scaffold. |
+| Local database environment | Docker Compose, PostgreSQL 17 | Local-only database service, readiness check and persistent named volume. | Configured; frontend and backend still run on the host. |
 | Backend dependency management | uv, pyproject.toml and uv.lock | Runtime/dev dependency declarations, locked resolution and local environments. | Migrated from pip requirements; dev tools are grouped separately. |
 
 These choices describe the target architecture. Do not assume adding a library
@@ -675,18 +677,20 @@ backend/
     core/config.py    # Environment-based settings
     main.py           # FastAPI application
   tests/              # Backend tests
-  .env.example
   pyproject.toml      # Runtime/dev dependencies and tool settings
   uv.lock             # Resolved dependency versions
 frontend/             # Next.js App Router, TypeScript, Tailwind, src/, npm
   src/app/
-  .env.example
 output/               # Workflow and UI prototype PDFs
+compose.yaml          # PostgreSQL-only local development service
+.env.example          # Shared Compose, backend and public frontend settings
+.env                  # Local values; ignored by Git
 README.md             # Product direction and local development guide
 ```
 
 ## Prerequisites
 
+- Docker Desktop, or Docker Engine with Docker Compose v2+ (for the local database)
 - Python 3.12 or newer
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) for backend dependency and environment management
 - A Node.js version supported by the installed Next.js release, with npm
@@ -695,6 +699,7 @@ README.md             # Product direction and local development guide
 
 | Service | URL |
 | --- | --- |
+| PostgreSQL | `127.0.0.1:54312` (configurable; PostgreSQL protocol, not HTTP) |
 | Frontend | <http://localhost:3012> |
 | Backend API | <http://localhost:8012> |
 | API documentation | <http://localhost:8012/docs> |
@@ -708,9 +713,10 @@ scaffold.
 From the repository root:
 
 ```bash
+cp -n .env.example .env
+# Edit root .env privately before starting PostgreSQL.
 cd backend
 uv sync --locked
-cp .env.example .env
 uv run --locked uvicorn app.main:app --reload --port 8012
 ```
 
@@ -727,7 +733,8 @@ environment. The backend is configured with `package = false`: run commands from
 
 Health: <http://localhost:8012/health> returns `{"status": "ok"}`.
 Interactive API documentation: <http://localhost:8012/docs>.
-Settings load from `backend/.env`; environment variables take precedence.
+Settings load from the repository-root `.env`, regardless of the backend working
+directory; process environment variables take precedence.
 `CORS_ORIGINS` is a JSON array and defaults to `["http://localhost:3012"]`.
 
 Run tests from `backend/` using the locked development dependencies:
@@ -738,24 +745,89 @@ uv run --locked pytest -q
 
 ## PostgreSQL setup and migrations
 
-Run all commands below from `backend/` after `uv sync --locked`.
-Virtual-environment activation is not required; `uv run` uses `backend/.venv`.
-Start a local PostgreSQL server or use an explicitly designated development
-instance. No database is created or reset automatically by the application.
+### Start the local database
 
-Using a PostgreSQL administrator account, create a development role and database
-once (skip these commands if your administrator has already provisioned them):
+From the repository root, create the local Compose settings file if it does not
+already exist. `cp -n` preserves existing configuration:
 
 ```bash
-createuser --pwprompt wehire
-createdb --owner=wehire wehire_dev
+cp -n .env.example .env
 ```
 
-Set `DATABASE_URL` privately in `backend/.env` using the commented format in
-`.env.example`, or inject it through the environment. Use the `postgresql+psycopg`
-driver and percent-encode password characters such as `@`, `%` and `/`. Never
-commit real credentials or print the connection URL. Settings mask the value;
-SQL parameter logging is disabled in the connection infrastructure.
+Edit root `.env` privately and replace `POSTGRES_PASSWORD=change-me` before startup.
+The default host port is `54312` to avoid a PostgreSQL service already using `5432`.
+Choose a different `POSTGRES_PORT` if necessary; Docker binds only to `127.0.0.1`.
+The image is pinned to PostgreSQL major version 17 (`postgres:17`); minor image
+updates stay within that major. Do not change the major version on an existing
+data volume without a planned PostgreSQL upgrade.
+
+```bash
+docker compose config --quiet
+docker compose up -d --wait postgres
+docker compose ps postgres
+docker compose exec -T postgres sh -c 'pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Use `config --quiet` to validate without printing resolved credentials.
+The health check establishes server readiness; migrations and integration tests
+below verify authenticated access from the backend. Docker Compose starts only
+PostgreSQL; run the backend and frontend separately with the commands above/below.
+
+Use **one root `.env` and one root `.env.example`** for the whole repository.
+Do not create backend/frontend copies; Next.js may give local copies precedence.
+
+| Variables in root `.env` | Used by | Purpose |
+| --- | --- | --- |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` | Docker Compose | Initialise PostgreSQL and publish its local port. |
+| `DATABASE_URL`, `APP_NAME`, `CORS_ORIGINS` | FastAPI and Alembic | Database access and backend settings. |
+| `NEXT_PUBLIC_API_URL` | Next.js | Public API address, embedded at frontend build time. |
+
+FastAPI reads root `.env` directly. `frontend/next.config.ts` loads it through
+`@next/env`; Compose reads it by default when run from the root. Existing process
+environment variables take precedence. Compose passes only its explicitly listed
+PostgreSQL variables into the database container.
+
+Edit `DATABASE_URL` in the same file to match the PostgreSQL username, password,
+port and database name. The backend runs on the host, so use `127.0.0.1:54312`.
+Use the `postgresql+psycopg` driver and percent-encode special password characters
+such as `@`, `%` and `/` in the URL only. Keep the raw password in
+`POSTGRES_PASSWORD`; single-quote it if it contains `$` or `#` to avoid dotenv
+interpolation. The URL is explicit, so changing `POSTGRES_PASSWORD` does not
+automatically update `DATABASE_URL`.
+
+Only `NEXT_PUBLIC_` variables are public browser configuration. Database settings
+remain server-side; never add them to `nextConfig.env`, client components or API
+responses. Restart services after editing `.env`; rebuild the frontend after
+changing a `NEXT_PUBLIC_` value. Never commit real credentials or print connection
+URLs. Settings mask `DATABASE_URL`; SQL parameter logging is disabled.
+
+The named volume `wehire_postgres_data` retains data when the service restarts or
+its container is recreated. Compose project names scope volumes; keep the same
+project name when returning to your development data. Initial database/user/password
+settings apply only when the volume is first initialised. Editing them later does
+not update existing PostgreSQL accounts; manage existing accounts explicitly.
+The configured local development user is the image's bootstrap administrator;
+production role separation and deployment are outside this setup.
+
+From the repository root:
+
+```bash
+docker compose stop postgres
+docker compose up -d --wait postgres
+# Or remove the containers/network while keeping the named volume:
+docker compose down
+docker compose up -d --wait postgres
+```
+
+Do not use `docker compose down -v` or delete the volume to troubleshoot; those
+actions remove stored data. No database is reset automatically by the application.
+An existing designated development PostgreSQL instance may also be used by setting
+root `.env` appropriately; Docker is not required for `/health`.
+
+### Apply migrations
+
+Run from `backend/` after `uv sync --locked` and configuring root `.env`.
+Virtual-environment activation is not required; `uv run` uses `backend/.venv`.
 
 ```bash
 uv run --locked alembic upgrade head
@@ -798,17 +870,55 @@ commit/rollback behaviour and offline PostgreSQL migration SQL. The session unit
 test uses in-memory SQLite only for lifecycle semantics; it is not proof of
 PostgreSQL connectivity.
 
-For a real integration check, have an administrator provision a **new empty test
-database**, then privately export `TEST_DATABASE_URL` pointing to it and run:
+For a real integration check, create a **new empty test database**, separate from
+`wehire_dev`. From the repository root, choose an unused name (shown here as
+`wehire_test_001`):
 
 ```bash
-uv run --locked pytest tests/test_postgresql.py -q
+docker compose exec -T postgres sh -c 'createdb --username "$POSTGRES_USER" --owner "$POSTGRES_USER" wehire_test_001'
 ```
 
-That check connects to PostgreSQL, requires an empty default schema, applies the
-baseline twice and verifies only `alembic_version` exists. It never resets or
-drops the database and leaves migration history in place. Use a fresh empty test
-database for another run. With no `TEST_DATABASE_URL`, it is explicitly skipped.
+If that name already exists, choose a new name; never reset or reuse a database
+that contains data. From `backend/`, use this wrapper to derive a private test URL
+from the configured development URL without printing credentials. Change the
+database name in both commands together:
+
+```bash
+uv run --locked python - <<'PY'
+import os
+import subprocess
+
+from app.db.session import get_database_url
+
+env = os.environ.copy()
+env["TEST_DATABASE_URL"] = get_database_url().set(
+    database="wehire_test_001"
+).render_as_string(hide_password=False)
+subprocess.run(
+    ["uv", "run", "--locked", "pytest", "tests/test_postgresql.py", "-q"],
+    env=env,
+    check=True,
+)
+PY
+```
+
+Alternatively, provide `TEST_DATABASE_URL` privately in the process environment
+and run `uv run --locked pytest tests/test_postgresql.py -q`. The test reads this
+variable from the environment, not a test URL stored in `.env`.
+
+That check verifies authenticated connectivity, requires an empty default schema,
+applies the baseline twice and verifies only `alembic_version` exists. It never
+resets or drops the database and leaves migration history in place. Use a fresh
+empty test database for another run. With no `TEST_DATABASE_URL`, it is explicitly
+skipped. Do not run migrations on the empty test database first: the integration
+test itself applies them.
+
+To check development data persistence, apply migrations to `wehire_dev`, run
+`docker compose restart postgres` from the root, wait for healthy status with
+`docker compose up -d --wait postgres`, then run `uv run --locked alembic current`
+again from `backend/`. The migration revision should remain unchanged. The same
+check after `docker compose down` followed by `up -d --wait postgres` verifies
+container recreation with the retained named volume.
 
 ## Run the frontend
 
@@ -817,7 +927,6 @@ In a second terminal, from the repository root:
 ```bash
 cd frontend
 npm install
-cp .env.example .env.local
 npm run dev
 ```
 
@@ -825,6 +934,7 @@ Open <http://localhost:3012>. Both `npm run dev` and `npm start` use port 3012.
 `NEXT_PUBLIC_API_URL` points to the backend and
 defaults in the example to `http://localhost:8012`. Variables prefixed with
 `NEXT_PUBLIC_` are public browser configuration, not secrets.
+The frontend reads the shared root `.env`; no `frontend/.env.local` is needed.
 The existing starter page is preserved and does not yet call the API.
 
 Validate a production build:

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3012"]
 
     model_config = SettingsConfigDict(
-        env_file=Path(__file__).resolve().parents[2] / ".env",
+        env_file=Path(__file__).resolve().parents[3] / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
